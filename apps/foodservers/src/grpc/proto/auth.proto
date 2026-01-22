@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package auth;
+
+import "google/protobuf/empty.proto";
+
+service AuthService {
+  // ❌ Avoid in production
+  // rpc GetAllUsers (google.protobuf.Empty) returns (UserList);
+
+  // ✅ Pagination based
+  rpc GetUserEmails (UserPaginationRequest)
+    returns (PaginatedUserResponse);
+
+  rpc UpdateUserRestaurant(UpdateUserRestaurantRequest) returns (UserResponse);
+}
+
+message UserPaginationRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string search = 3;
+}
+
+message UserEmail {
+  string id = 1;
+  string email = 2;
+}
+
+message PaginatedUserResponse {
+  repeated UserEmail data = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+
+message UpdateUserRestaurantRequest {
+  string ownerEmail = 1;
+  string restaurantId = 2;
+}
+
+message UserResponse {
+  string id = 1;
+  string email = 2;
+  repeated string restaurantIds = 3;
+}

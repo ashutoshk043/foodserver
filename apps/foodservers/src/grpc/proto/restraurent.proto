@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package restaurant;
+
+service RestaurantService {
+  rpc GetAllRestaurants (Empty) returns (RestaurantList);
+}
+
+message Empty {}
+
+message Restaurant {
+  string id = 1;
+  string name = 2;
+}
+
+message RestaurantList {
+  repeated Restaurant restaurants = 1;
+}
