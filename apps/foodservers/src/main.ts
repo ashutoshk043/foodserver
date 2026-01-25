@@ -5,36 +5,29 @@ import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { join } from 'path';
 import * as fs from 'fs';
 
-function resolveProtoPath(): string {
-  const candidates = [
-    // ✅ prod build (dist)
-    join(__dirname, 'grpc/proto/restraurent.proto'),
-
-    // ✅ prod alternative (sometimes Nest outputs here)
-    join(process.cwd(), 'dist/apps/foodservers/grpc/proto/restraurent.proto'),
-
-    // ✅ dev (ts-node)
-    join(process.cwd(), 'apps/foodservers/src/grpc/proto/restraurent.proto'),
+function resolveProtoFromPackage(): string {
+  const possiblePaths = [
+    // 1️⃣ prod / build
+    join(__dirname, '../../node_modules/@tivr/grpc-protos/proto/restaurant/restaurant.proto'),
+    // 2️⃣ ts-node / dev
+    join(process.cwd(), 'node_modules/@tivr/grpc-protos/proto/restaurant/restaurant.proto'),
   ];
 
-  for (const path of candidates) {
-    if (fs.existsSync(path)) {
-      console.log('✅ Using protoPath:', path);
-      return path;
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      console.log('✅ Using protoPath:', p);
+      return p;
     }
   }
 
-  console.error('❌ gRPC proto file NOT FOUND. Tried paths:');
-  candidates.forEach(p => console.error(' -', p));
+  console.error('❌ Could not find restaurant.proto in @tivr/grpc-protos package. Tried paths:');
+  possiblePaths.forEach(p => console.error('  -', p));
   process.exit(1);
 }
 
 
 async function bootstrap() {
   try {
-    console.log('🔄 [Restaurant] Bootstrapping Service...');
-    console.log('📂 __dirname:', __dirname);
-    console.log('📂 process.cwd():', process.cwd());
 
     const app = await NestFactory.create(AppModule);
 
@@ -46,7 +39,7 @@ async function bootstrap() {
     const GRPC_PORT = Number(process.env.RESTAURANT_GRPC_PORT) || 5000;
 
     // Resolve proto
-    const protoPath = resolveProtoPath();
+    const protoPath = resolveProtoFromPackage();
 
     // Attach gRPC Microservice
     app.connectMicroservice<MicroserviceOptions>({

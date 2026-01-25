@@ -57,6 +57,14 @@ export class FoodresolverResolver {
 
 
 
+@Mutation(() => Restaurant)
+deleteRestaurant(
+  @Args('id') id: string,
+) {
+  return this.restaurantService.deleteRestaurant(id);
+}
+
+
 
 
 

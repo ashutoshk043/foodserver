@@ -1,14 +1,11 @@
 import { Module, Logger } from '@nestjs/common';
-import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from '@app/database';
 import { SharedGraphQLModule } from '@app/graphql';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { RedisModule } from '@app/redis/redis.module';   // ✅ Added
-import { FoodresolverResolver } from './restraurent/foodresolvers/foodresolver/foodresolver.resolver';
 import { Restaurant, RestaurantSchema } from './restraurent/schemas/restraurent.model';
-import { RestraurentService } from './restraurent/services/restraurent/restraurent.service';
 import { RestraurentModule } from './restraurent/restraurent.module';
 import { BullModule } from '@nestjs/bull';
 import { UploadModule } from '../src/upload/upload.module';

@@ -39,6 +39,7 @@
     "@nestjs/platform-socket.io": "^11.1.12",
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^11.1.12",
+    "@tivr/grpc-protos": "^1.0.0",
     "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "bull": "^4.16.5",

@@ -4,6 +4,8 @@ import { Model } from 'mongoose';
 import { Product, ProductDocument } from '../../schemas/product_schema';
 import { CreateProductInput } from '../../dtos/create_product_input';
 import { ProductType } from '../../types/product.types';
+import { Restaurant } from 'apps/foodservers/src/restraurent/schemas/restraurent.model';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class AddEditProductsService {
@@ -11,6 +13,8 @@ export class AddEditProductsService {
   constructor(
     @InjectModel(Product.name, 'restraurentconnection')
     private readonly productModel: Model<ProductDocument>,
+    @InjectModel(Restaurant.name, 'restraurentconnection')
+    private readonly restaurantModel: Model<Restaurant>,
   ) { }
 
   async createProduct(
@@ -68,26 +72,49 @@ export class AddEditProductsService {
   }
 
 
-  // add-edit-products.service.ts
-  async searchProducts(filters: {
+async searchProducts(
+  filters: {
     name?: string;
     category?: string;
-  } = {}): Promise<ProductType[]> {
+    page?: number;
+    limit?: number;
+    user?: any;
+  } = {},
+) {
+  const {
+    name,
+    category,
+    page = 1,
+    limit = 10,
+    user,
+  } = filters;
 
-    const query: any = {};
+  console.log(user, 'user');
 
-    if (filters.name) {
-      query.name = { $regex: filters.name, $options: 'i' }; // case-insensitive
-    }
+  const query: any = {};
 
-    if (filters.category) {
-      query.category = { $regex: filters.category, $options: 'i' };
-    }
+  if (name) {
+    query.name = { $regex: name, $options: 'i' };
+  }
 
-    // Agar filters empty hain, to pura collection fetch hoga
-    const products = await this.productModel.find(query);
+  if (category) {
+    query.category = { $regex: category, $options: 'i' };
+  }
 
-    return products.map((product) => ({
+  const skip = (page - 1) * limit;
+
+  const [products, total] = await Promise.all([
+    this.productModel
+      .find(query)
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 }),
+
+    this.productModel.countDocuments(query),
+  ]);
+
+  return {
+    data: products.map((product) => ({
       _id: product._id.toString(),
       productId: product.productId,
       name: product.name,
@@ -99,8 +126,12 @@ export class AddEditProductsService {
       status: product.status,
       imageUrl: product.imageUrl,
       restaurantName: product.restaurantName.toString(),
-    }));
-  }
+    })),
+    total,
+    page,
+    limit,
+  };
+}
 
   async deleteProduct(_id: string): Promise<ProductType> {
     const product = await this.productModel.findByIdAndDelete(_id);

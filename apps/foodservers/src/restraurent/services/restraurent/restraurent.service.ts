@@ -26,7 +26,7 @@ interface AuthGrpcService {
 @Injectable()
 export class RestraurentService implements OnModuleInit {
 
-  private authService: AuthGrpcService;
+  private authGRPCService: AuthGrpcService;
 
   constructor(
     @InjectModel(Restaurant.name, 'restraurentconnection')
@@ -40,7 +40,7 @@ export class RestraurentService implements OnModuleInit {
      INIT gRPC SERVICE
   ======================= */
   onModuleInit() {
-    this.authService =
+    this.authGRPCService =
       this.client.getService<AuthGrpcService>('AuthService');
   }
 
@@ -66,7 +66,7 @@ export class RestraurentService implements OnModuleInit {
     /* 🔗 gRPC CALL → AUTH SERVICE */
     try {
       await firstValueFrom(
-        this.authService.UpdateUserRestaurant({
+        this.authGRPCService.UpdateUserRestaurant({
           ownerEmail: input.ownerEmail,
           restaurantId: savedRestaurant.id,
         }),
@@ -188,7 +188,7 @@ async updateRestaurant(input: CreateRestaurantInput): Promise<Restaurant> {
   ======================= */
   async getUsers(input: any) {
     return firstValueFrom(
-      this.authService.GetUserEmails(input),
+      this.authGRPCService.GetUserEmails(input),
     );
   }
 
@@ -229,5 +229,10 @@ async updateRestaurant(input: CreateRestaurantInput): Promise<Restaurant> {
     closedCount: result[0].closedCount,
   };
 }
+
+async deleteRestaurant(id: string) {
+  return this.restaurantModel.findByIdAndDelete(id);
+}
+
 
 }

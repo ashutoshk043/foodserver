@@ -1,7 +1,8 @@
-import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { ProductType } from '../../types/product.types';
 import { CreateProductInput } from '../../dtos/create_product_input';
 import { AddEditProductsService } from '../../services/add-edit-products/add-edit-products.service';
+import { ProductPaginationType } from '../../types/product-pagination';
 
 @Resolver(() => ProductType)
 export class ProductResolver {
@@ -32,14 +33,26 @@ export class ProductResolver {
     return this.productService.updateProduct(_id, input);
   }
 
+@Query(() => ProductPaginationType)
+async searchProducts(
+  @Args('name', { nullable: true }) name?: string,
+  @Args('category', { nullable: true }) category?: string,
+  @Args('page', { type: () => Int, defaultValue: 1 }) page?: number,
+  @Args('limit', { type: () => Int, defaultValue: 10 }) limit?: number,
+  @Context() ctx?: any
+) {
+  const user = ctx.req.user; // injected by auth guard
 
-  @Query(() => [ProductType])
-  async searchProducts(
-    @Args('name', { nullable: true }) name?: string,
-    @Args('category', { nullable: true }) category?: string,
-  ): Promise<ProductType[]> {
-    return this.productService.searchProducts({ name, category });
-  }
+  return this.productService.searchProducts({
+    name,
+    category,
+    page,
+    limit,
+    user
+  });
+}
+
+
 
 
   @Mutation(() => ProductType)
