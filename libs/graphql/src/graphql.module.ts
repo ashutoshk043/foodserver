@@ -8,6 +8,7 @@ export interface GraphQLConnectionOptions {
   federation?: boolean;  // true => Federation mode
   playground?: boolean;  // true => enable playground
   schemaPath?: string;   // path of schema file
+  context?: ({ req }: { req: any }) => any; // ✅ context type
 }
 
 @Module({})
@@ -15,7 +16,12 @@ export class SharedGraphQLModule {
   private static readonly logger = new Logger(SharedGraphQLModule.name);
 
   static forRoot(options: GraphQLConnectionOptions = {}): DynamicModule {
-    const { federation = true, playground = true, schemaPath = 'src/schema.gql' } = options;
+    const {
+      federation = true,
+      playground = true,
+      schemaPath = 'src/schema.gql',
+      context = undefined, // default undefined
+    } = options;
 
     this.logger.log(
       `🚀 Initializing GraphQL Module [Mode: ${federation ? 'Federation' : 'Standalone'}]`
@@ -26,14 +32,16 @@ export class SharedGraphQLModule {
           GraphQLModule.forRoot<ApolloFederationDriverConfig>({
             driver: ApolloFederationDriver,
             autoSchemaFile: { federation: 2 },
-            playground,
+            playground: playground,
+            context: context, // explicitly pass context
           }),
         ]
       : [
           GraphQLModule.forRoot<ApolloDriverConfig>({
             driver: ApolloDriver,
-            playground,
+            playground: playground,
             autoSchemaFile: join(process.cwd(), schemaPath),
+            context: context,
           }),
         ];
 

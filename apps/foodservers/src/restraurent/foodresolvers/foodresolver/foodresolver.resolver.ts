@@ -1,4 +1,4 @@
-import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CreateRestaurantInput } from '../../dtos/create_restraurent.input';
 import { Restaurant } from '../../schemas/restraurent.model';
 import { RestraurentService } from '../../services/restraurent/restraurent.service';
@@ -34,11 +34,13 @@ export class FoodresolverResolver {
 
   @Query(() => RestaurantPagination)
   restaurants(
+    @Context() ctx,
     @Args('page', { type: () => Int, nullable: true }) page = 1,
     @Args('limit', { type: () => Int, nullable: true }) limit = 10,
     @Args('search', { type: () => String, nullable: true }) search?: string,
+    @Args('restId', { type: () => String, nullable: true }) restId?: string,
   ) {
-    return this.restaurantService.getRestaurants(page, limit, search);
+    return this.restaurantService.getRestaurants(ctx.user,page, limit, search , restId);
   }
 
 

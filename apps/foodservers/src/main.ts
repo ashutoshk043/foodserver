@@ -5,25 +5,41 @@ import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { join } from 'path';
 import * as fs from 'fs';
 
-function resolveProtoFromPackage(): string {
-  const possiblePaths = [
-    // 1️⃣ prod / build
-    join(__dirname, '../../node_modules/@tivr/grpc-protos/proto/restaurant/restaurant.proto'),
-    // 2️⃣ ts-node / dev
-    join(process.cwd(), 'node_modules/@tivr/grpc-protos/proto/restaurant/restaurant.proto'),
-  ];
 
-  for (const p of possiblePaths) {
-    if (fs.existsSync(p)) {
-      console.log('✅ Using protoPath:', p);
-      return p;
-    }
+function resolveProtoFromPackage(): string {
+  const p = join(
+    process.cwd(),
+    'node_modules/@tivr/grpc-protos/proto/restaurant/restaurant.proto'
+  );
+
+  if (!fs.existsSync(p)) {
+    console.error('❌ restaurant.proto not found at', p);
+    process.exit(1);
   }
 
-  console.error('❌ Could not find restaurant.proto in @tivr/grpc-protos package. Tried paths:');
-  possiblePaths.forEach(p => console.error('  -', p));
-  process.exit(1);
+  console.log('✅ Using protoPath:', p);
+  return p;
 }
+
+// function resolveProtoFromPackage(): string {
+//   const possiblePaths = [
+//     // 1️⃣ prod / build
+//     join(__dirname, '../../node_modules/@tivr/grpc-protos/proto/restaurant/restaurant.proto'),
+//     // 2️⃣ ts-node / dev
+//     join(process.cwd(), 'node_modules/@tivr/grpc-protos/proto/restaurant/restaurant.proto'),
+//   ];
+
+//   for (const p of possiblePaths) {
+//     if (fs.existsSync(p)) {
+//       console.log('✅ Using protoPath:', p);
+//       return p;
+//     }
+//   }
+
+//   console.error('❌ Could not find restaurant.proto in @tivr/grpc-protos package. Tried paths:');
+//   possiblePaths.forEach(p => console.error('  -', p));
+//   process.exit(1);
+// }
 
 
 async function bootstrap() {

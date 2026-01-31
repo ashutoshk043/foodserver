@@ -47,12 +47,23 @@ import { ProductsModule } from './products/products.module';
     SharedGraphQLModule.forRoot({
       federation: true,
       playground: true,
+      context: ({ req }) => {
+        const xUserHeader = req.headers['x-user'] as string | undefined;
+        if (!xUserHeader) return { req };
+
+        try {
+          const user = JSON.parse(xUserHeader);
+          return { req, user };
+        } catch (err) {
+          console.log('❌ Failed to parse x-user header:', err.message);
+          return { req };
+        }
+      },
     }),
 
     // JWT Module
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'secretKey',
-      signOptions: { expiresIn: '1h' },
+      secret: process.env.JWT_SECRET || 'secretKey'
     }),
 
     // 🟢 Redis Module (MANDATORY)

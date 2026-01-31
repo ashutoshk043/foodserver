@@ -10,7 +10,7 @@ export const GrpcClientsModule = ClientsModule.register([
       package: 'auth',
       protoPath: join(
         process.cwd(),
-        'apps/foodservers/src/grpc/proto/auth.proto',
+        'node_modules/@tivr/grpc-protos/proto/auth/auth.proto', // 🔥 correct
       ),
       loader: {
         keepCase: true,
