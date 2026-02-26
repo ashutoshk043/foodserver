@@ -11,6 +11,7 @@ import { BullModule } from '@nestjs/bull';
 import { UploadModule } from '../src/upload/upload.module';
 import { ImportWorkerModule } from '../src/import-worker/import-worker.module';
 import { ProductsModule } from './products/products.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -72,6 +73,8 @@ import { ProductsModule } from './products/products.module';
     RestraurentModule,
 
     ProductsModule,
+
+    CategoriesModule,
   ],
   controllers: [],
 })

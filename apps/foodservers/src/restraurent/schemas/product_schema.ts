@@ -66,7 +66,7 @@ export class Product {
     required: true,
     index: true,
   })
-  restaurantName: Types.ObjectId;
+  restaurantId: Types.ObjectId;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

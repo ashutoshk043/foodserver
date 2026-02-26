@@ -1,79 +1,40 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
+import { Document } from 'mongoose';
 
-export type ProductDocument = Product & Document;
-
-@Schema({
-  timestamps: true,
-  versionKey: false,
-})
+@Schema({ timestamps: true })
 export class Product {
-
-  @Prop({
-    default: () => uuidv4(),
-    index: true,
-  })
-  productId: string;
-
-  @Prop({
-    required: true,
-    trim: true,
-    index: true,
-  })
+  @Prop({ required: true })
   name: string;
 
-  @Prop({ trim: true })
+  @Prop({ required: true, unique: true })
+  slug: string;
+
+  @Prop({ required: true })
+  categoryId: string;
+
+  @Prop()
   description?: string;
-
-  @Prop({
-    trim: true,
-    index: true,
-  })
-  category: string;
-
-  @Prop({
-    required: true,
-    trim: true,
-    index: true,
-  })
-  variant: string;
-
-  @Prop({
-    required: true,
-    min: 0,
-  })
-  price: number;
-
-  @Prop({
-    required: true,
-    min: 0,
-  })
-  stock: number;
-
-  @Prop({
-    enum: ['Available', 'Unavailable', 'OutOfStock'],
-    default: 'Available',
-    index: true,
-  })
-  status: string;
 
   @Prop()
   imageUrl?: string;
 
-  @Prop({
-    type: Types.ObjectId,
-    ref: 'Restaurant',
-    required: true,
-    index: true,
-  })
-  restaurantName: Types.ObjectId;
+  @Prop({ type: [String], default: [] })
+  tags: string[];
+
+  @Prop({ default: true })
+  isVeg: boolean;
+
+  @Prop({ default: true })
+  isActive: boolean;
+
+  @Prop({ default: true })
+  isOnlineVisible: boolean;
 }
 
-export const ProductSchema = SchemaFactory.createForClass(Product);
+export type ProductDocument = Product &
+  Document & {
+    createdAt: Date;
+    updatedAt: Date;
+  };
 
-/* 🔥🔥 COMPOUND UNIQUE INDEX */
-ProductSchema.index(
-  { restaurantName: 1, name: 1, variant: 1 },
-  { unique: true },
-);
+export const ProductSchema = SchemaFactory.createForClass(Product);
