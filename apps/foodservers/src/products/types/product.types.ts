@@ -1,8 +1,16 @@
 import { ObjectType, Field, ID } from '@nestjs/graphql';
 
 @ObjectType()
-export class ProductType {
+export class CategoryDetails {
+  @Field(() => ID)
+  id: string;
 
+  @Field()
+  name: string;
+}
+
+@ObjectType()
+export class ProductType {
   @Field(() => ID)
   _id: string;
 
@@ -15,23 +23,26 @@ export class ProductType {
   @Field()
   categoryId: string;
 
-  @Field()
-  description: string;
+  @Field(() => CategoryDetails, { nullable: true })
+  category?: CategoryDetails;
 
-  @Field()
-  imageUrl: string;
+  @Field({ nullable: true })
+  description?: string;
 
-  @Field(() => [String])
-  tags: string[];
+  @Field({ nullable: true })
+  imageUrl?: string;
 
-  @Field()
-  isVeg: boolean;
+  @Field(() => [String], { nullable: true })
+  tags?: string[];
 
-  @Field()
-  isActive: boolean;
+  @Field({ nullable: true })
+  isVeg?: boolean;
 
-  @Field()
-  isOnlineVisible: boolean;
+  @Field({ nullable: true })
+  isActive?: boolean;
+
+  @Field({ nullable: true })
+  isOnlineVisible?: boolean;
 
   @Field()
   createdAt: Date;

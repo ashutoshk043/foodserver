@@ -156,49 +156,92 @@ export class AddEditProductsService {
     const { name, categoryId, page = 1, limit = 10 } = filters;
 
     try {
-      const query: any = {};
+      const match: any = {};
 
-      // 🔍 Search filters
+      // 🔍 Name search
       if (name) {
-        query.name = { $regex: name, $options: 'i' };
+        match.name = { $regex: name, $options: 'i' };
       }
 
+      // 🔍 Category filter
       if (categoryId) {
-        query.categoryId = categoryId;
+        match.categoryId = categoryId;
       }
-
-      // Only active + visible products
-      // query.isActive = true;
-      // query.isOnlineVisible = true;
 
       const skip = (page - 1) * limit;
 
-      // 📊 Fetch data + count
-      const [products, total] = await Promise.all([
-        this.productModel
-          .find(query)
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limit),
-        this.productModel.countDocuments(query),
-      ]);
+      const pipeline: any = [
+        { $match: match },
 
-      // 🧼 Map DB → API
+        // 🔗 Join categories
+        {
+          $lookup: {
+            from: 'categories',
+            localField: 'categoryId',
+            foreignField: '_id',
+            as: 'category',
+          },
+        },
+
+        // 🔽 Unwind category safely
+        {
+          $unwind: {
+            path: '$category',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
+        {
+          $sort: { createdAt: -1, _id: -1 },
+        },
+
+        {
+          $facet: {
+            data: [
+              { $skip: skip },
+              { $limit: limit },
+
+              {
+                $project: {
+                  _id: 1,
+                  name: 1,
+                  slug: 1,
+                  description: 1,
+                  imageUrl: 1,
+                  tags: 1,
+                  isVeg: 1,
+                  isActive: 1,
+                  isOnlineVisible: 1,
+                  createdAt: 1,
+                  updatedAt: 1,
+
+                  // ✅ SAFE CATEGORY
+                  category: {
+                    $cond: {
+                      if: { $ifNull: ['$category._id', false] },
+                      then: {
+                        id: { $toString: '$category._id' },
+                        name: '$category.name',
+                      },
+                      else: null,
+                    },
+                  },
+                },
+              },
+            ],
+
+            totalCount: [{ $count: 'count' }],
+          },
+        },
+      ];
+
+      const result = await this.productModel.aggregate(pipeline);
+
+      const data = result[0]?.data || [];
+      const total = result[0]?.totalCount[0]?.count || 0;
+
       return {
-        data: products.map((product) => ({
-          _id: product._id.toString(),
-          name: product.name,
-          slug: product.slug,
-          categoryId: product.categoryId,
-          description: product.description ?? '',
-          imageUrl: product.imageUrl ?? '',
-          tags: product.tags,
-          isVeg: product.isVeg,
-          isActive: product.isActive,
-          isOnlineVisible: product.isOnlineVisible,
-          createdAt: product.createdAt,
-          updatedAt: product.updatedAt,
-        })),
+        data,
         total,
         page,
         limit,

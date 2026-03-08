@@ -14,7 +14,7 @@ export class CategoryService {
   constructor(
     @InjectModel(Category.name, 'restraurentconnection')
     private readonly categoryModel: Model<Category>,
-  ) {}
+  ) { }
 
   // =========================
   // CREATE CATEGORY
@@ -83,24 +83,85 @@ export class CategoryService {
   // =========================
   // GET ALL
   // =========================
-  async getCategories() {
-    return this.categoryModel
-      .find()
-      .sort({ priority: 1, order: 1 })
-      .lean();
-  }
+async deleteCategory(id: string) {
+  return this.categoryModel.findByIdAndUpdate(
+    id,
+    { $set: { isDeleted: true } },
+    { new: true }
+  ).lean();
+}
 
-  // =========================
-  // INCLUDED CATEGORIES
-  // =========================
-  async getIncludedCategories() {
-    return this.categoryModel
-      .find({
+  async getIncludedCategoriesPaginated(
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+  ) {
+    try {
+
+      page = page < 1 ? 1 : page;
+      limit = limit > 50 ? 50 : limit;
+
+      const skip = (page - 1) * limit;
+
+      const query: any = {
+        isDeleted: false,
         isActive: true,
         name: { $not: /^bestseller$/i },
-      })
-      .select({ _id: 1, name: 1 })
-      .sort({ name: 1 })
-      .lean();
+      };
+
+      if (search && search.trim() !== '') {
+        query.name = { $regex: search.trim(), $options: 'i' };
+      }
+
+      const [data, total] = await Promise.all([
+        this.categoryModel
+          .find(query)
+          .select({
+            _id: 1,
+            name: 1,
+            slug: 1,
+            imageUrl: 1,
+            order: 1,
+            priority: 1,
+            categoryType: 1,
+            displaySections: 1,
+            badges: 1,
+            isActive: 1,
+            isOnlineVisible: 1,
+          })
+          .sort({ order: 1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+
+        this.categoryModel.countDocuments(query),
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data,
+        total,
+        totalPages,
+        currentPage: page,
+        limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      };
+
+    } catch (error) {
+
+      console.error('Error in getIncludedCategoriesPaginated:', error);
+
+      return {
+        data: [],
+        total: 0,
+        totalPages: 0,
+        currentPage: page,
+        limit,
+        hasNextPage: false,
+        hasPrevPage: false,
+      };
+    }
   }
 }

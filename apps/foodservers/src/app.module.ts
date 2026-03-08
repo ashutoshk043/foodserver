@@ -12,6 +12,7 @@ import { UploadModule } from '../src/upload/upload.module';
 import { ImportWorkerModule } from '../src/import-worker/import-worker.module';
 import { ProductsModule } from './products/products.module';
 import { CategoriesModule } from './categories/categories.module';
+import { ProductVarientsModule } from './product-varients/product-varients.module';
 
 @Module({
   imports: [
@@ -75,6 +76,8 @@ import { CategoriesModule } from './categories/categories.module';
     ProductsModule,
 
     CategoriesModule,
+
+    ProductVarientsModule,
   ],
   controllers: [],
 })

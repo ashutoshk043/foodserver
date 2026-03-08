@@ -1,6 +1,27 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
+/* ================= ENUMS ================= */
+
+export enum CategoryType {
+  FOOD = 'FOOD',
+  DRINK = 'DRINK',
+  OTHER = 'OTHER',
+}
+
+export enum DisplaySection {
+  POS = 'POS',
+  ONLINE = 'ONLINE',
+}
+
+export enum CategoryBadge {
+  TRENDING = 'TRENDING',
+  BESTSELLER = 'BESTSELLER',
+  NEW = 'NEW',
+}
+
+/* ================= SCHEMA ================= */
+
 @Schema({
   timestamps: true,
   versionKey: false,
@@ -29,29 +50,36 @@ export class Category extends Document {
 
   @Prop({
     required: true,
-    enum: ['FOOD', 'DRINK', 'OTHER'],
+    enum: CategoryType,
   })
-  categoryType: string;
+  categoryType: CategoryType;
 
   @Prop({
     type: [String],
-    enum: ['POS', 'ONLINE'],
+    enum: DisplaySection,
     default: [],
   })
-  displaySections: string[];
+  displaySections: DisplaySection[];
 
   @Prop({
     type: [String],
-    enum: ['TRENDING', 'BESTSELLER', 'NEW'],
+    enum: CategoryBadge,
     default: [],
   })
-  badges: string[];
+  badges: CategoryBadge[];
 
   @Prop({ default: true })
   isActive: boolean;
 
   @Prop({ default: true })
   isOnlineVisible: boolean;
+
+  @Prop({ default: false })
+  isDeleted: boolean;
 }
 
 export const CategorySchema = SchemaFactory.createForClass(Category);
+
+/* ================= INDEX ================= */
+
+CategorySchema.index({ name: 1 });
