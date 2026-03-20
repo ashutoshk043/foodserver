@@ -1,15 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { RestaurentVarientPriceResolverResolver } from './restaurent-varient-price-resolver.resolver';
+import { RestaurantVariantPriceResolver } from './restaurent-varient-price-resolver.resolver';
 
-describe('RestaurentVarientPriceResolverResolver', () => {
-  let resolver: RestaurentVarientPriceResolverResolver;
+describe('RestaurantVariantPriceResolver', () => {
+  let resolver: RestaurantVariantPriceResolver;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [RestaurentVarientPriceResolverResolver],
+      providers: [RestaurantVariantPriceResolver],
     }).compile();
 
-    resolver = module.get<RestaurentVarientPriceResolverResolver>(RestaurentVarientPriceResolverResolver);
+    resolver = module.get<RestaurantVariantPriceResolver>(RestaurantVariantPriceResolver);
   });
 
   it('should be defined', () => {

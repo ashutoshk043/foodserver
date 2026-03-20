@@ -14,6 +14,13 @@ export class UpdateRestaurantVariantPriceInput {
   @Field(() => Float, { nullable: true })
   price?: number;
 
+  // ✅ nullable so old records can be updated without these
+  @Field(() => Float, { nullable: true })
+  mrp?: number;
+
+  // @Field(() => Float, { nullable: true })
+  // actualSellingPrice?: number;
+
   @Field({ nullable: true })
   isAvailable?: boolean;
 }

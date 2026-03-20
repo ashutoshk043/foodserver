@@ -11,6 +11,13 @@ export class CreateRestaurantVariantPriceInput {
   @Field(() => Float)
   price: number;
 
+  // ✅ New fields
+  @Field(() => Float)
+  mrp: number;
+
+  // @Field(() => Float)
+  // actualSellingPrice: number;
+
   @Field({ defaultValue: true })
   isAvailable: boolean;
 }

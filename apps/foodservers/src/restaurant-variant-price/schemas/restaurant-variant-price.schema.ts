@@ -14,6 +14,13 @@ export class RestaurantVariantPrice {
   @Prop({ required: true })
   price: number;
 
+  // ✅ New fields
+  @Prop({ required: true })
+  mrp: number;
+
+  // @Prop({ required: true })
+  // actualSellingPrice: number;
+
   @Prop({ default: true })
   isAvailable: boolean;
 
