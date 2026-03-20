@@ -19,7 +19,7 @@ export class CreateProductInput {
   imageUrl: string;
 
   @Field(() => [String])
-  tags: string[];
+  varients: string[];
 
   @Field()
   isVeg: boolean;

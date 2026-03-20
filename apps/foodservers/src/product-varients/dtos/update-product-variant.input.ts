@@ -2,19 +2,19 @@ import { InputType, Field, ID } from '@nestjs/graphql';
 import { IsNotEmpty, IsString, IsBoolean, IsOptional, IsMongoId } from 'class-validator';
 
 @InputType()
-export class CreateProductVariantInput {
+export class UpdateProductVariantInput {
   @Field(() => ID)
   @IsNotEmpty()
   @IsMongoId()
-  productId: string;                        // client sends string
+  _id: string;
 
-  @Field(() => String)
-  @IsNotEmpty()
+  @Field({ nullable: true })
+  @IsOptional()
   @IsString()
-  size: string;
+  size?: string;
 
-  @Field({ defaultValue: true })
+  @Field({ nullable: true })
   @IsOptional()
   @IsBoolean()
-  isActive?: boolean = true;
+  isActive?: boolean;
 }

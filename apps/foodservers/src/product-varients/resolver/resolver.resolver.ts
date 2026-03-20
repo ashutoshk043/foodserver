@@ -1,43 +1,71 @@
-import { Resolver, Mutation, Args, ID, Int, Query } from '@nestjs/graphql';
-import { ProductVariantService } from '../services/services.service';
-import { ProductVariantType } from '../types/product-variant.type';
-import { CreateProductVariantInput } from '../dtos/create-product-variant.input';
-import { ProductVariantListResponse } from '../types/product-variant-list.response';
+// import { Resolver, Mutation, Args, ID, Int, Query } from '@nestjs/graphql';
+// import { ProductVariantService } from '../services/services.service';
+// import { ProductVariantType } from '../types/product-variant.type';
+// import { CreateProductVariantInput } from '../dtos/create-product-variant.input';
+// import { ProductVariantListResponse } from '../types/product-variant-list.response';
 
-@Resolver(() => ProductVariantType)
+// @Resolver(() => ProductVariantType)
+// export class ProductVariantResolver {
+//   constructor(private readonly service: ProductVariantService) {}
+
+//   @Mutation(() => ProductVariantType)
+//   addProductVariant(
+//     @Args('input') input: CreateProductVariantInput,
+//   ) {
+//     return this.service.addProductVariant(input);
+//   }
+
+//   @Mutation(() => ProductVariantType)
+//   updateProductVariant(
+//     @Args('_id', { type: () => ID }) _id: string,
+//     @Args('input') input: CreateProductVariantInput,
+//   ) {
+//     return this.service.updateProductVariant(_id, input);
+//   }
+
+//   @Query(() => [ProductVariantType])
+//   async getProductVariants() {
+//     return this.service.getProductVariants();
+//   }
+// }
+
+import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
+import { ProductVariantType } from '../types/product-variant.type';
+import { ProductVariantListResponse } from '../types/product-variant-list.response';
+import { GetVariantsInput } from '../dtos/get-variants.input';
+import { CreateProductVariantInput } from '../dtos/create-product-variant.input';
+import { UpdateProductVariantInput } from '../dtos/update-product-variant.input';
+import { ProductVariantService } from '../services/services.service';
+
+@Resolver()
 export class ProductVariantResolver {
   constructor(private readonly service: ProductVariantService) {}
 
-  @Mutation(() => ProductVariantType)
-  addProductVariant(
-    @Args('input') input: CreateProductVariantInput,
-  ) {
-    return this.service.addProductVariant(input);
+  @Query(() => ProductVariantListResponse)
+  async getProductVariants(
+    @Args('input', { nullable: true }) input: GetVariantsInput = {},
+  ): Promise<ProductVariantListResponse> {
+    return this.service.getProductVariants(input);
   }
 
   @Mutation(() => ProductVariantType)
-  updateProductVariant(
-    @Args('_id', { type: () => ID }) _id: string,
+  async createProductVariant(
     @Args('input') input: CreateProductVariantInput,
-  ) {
-    return this.service.updateProductVariant(_id, input);
+  ): Promise<ProductVariantType> {
+    return this.service.createProductVariant(input);
   }
 
-@Query(() => ProductVariantListResponse)
-getProductVariants(
-  @Args('productId', { nullable: true }) productId?: string,
+  @Mutation(() => ProductVariantType)
+  async updateProductVariant(
+    @Args('input') input: UpdateProductVariantInput,
+  ): Promise<ProductVariantType> {
+    return this.service.updateProductVariant(input);
+  }
 
-  @Args('size', { nullable: true }) size?: string,
-
-  @Args('page', { type: () => Int, defaultValue: 1 }) page?: number,
-
-  @Args('limit', { type: () => Int, defaultValue: 10 }) limit?: number,
-) {
-  return this.service.getProductVariants(
-    productId,
-    size,
-    page,
-    limit,
-  );
-}
+  @Mutation(() => Boolean)
+  async deleteProductVariant(
+    @Args('id', { type: () => String }) id: string,
+  ): Promise<boolean> {
+    return this.service.deleteProductVariant(id);
+  }
 }

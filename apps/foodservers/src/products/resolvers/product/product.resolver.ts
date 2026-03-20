@@ -1,4 +1,4 @@
-import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, Context, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { ProductType } from '../../types/product.types';
 import { CreateProductInput } from '../../dtos/create_product_input';
 import { AddEditProductsService } from '../../services/add-edit-products/add-edit-products.service';
@@ -60,6 +60,14 @@ export class ProductResolver {
   @Query(() => [Restraurents])
   async getAllRestaurants(@Context() ctx?: any): Promise<Restraurents[]> {
     return this.productService.getAllRestaurants(ctx);
+  }
+
+    // ✅ new
+  @Query(() => ProductType, { nullable: true })
+  async getProductById(
+    @Args('_id', { type: () => ID }) _id: string,
+  ): Promise<ProductType> {
+    return this.productService.getProductById(_id);
   }
 
 }

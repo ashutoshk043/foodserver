@@ -1,10 +1,10 @@
 import { ObjectType, Field, Int } from '@nestjs/graphql';
-import { ProductVariantType } from './product-variant.type';
+import { IngredientType } from './ingredient.type';
 
 @ObjectType()
-export class ProductVariantListResponse {
-  @Field(() => [ProductVariantType])
-  data: ProductVariantType[];
+export class PaginatedIngredients {
+  @Field(() => [IngredientType])
+  data: IngredientType[];
 
   @Field(() => Int)
   total: number;

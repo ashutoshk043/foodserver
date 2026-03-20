@@ -2,15 +2,18 @@ import { ObjectType, Field, ID } from '@nestjs/graphql';
 
 @ObjectType()
 export class CategoryDetails {
+
   @Field(() => ID)
   id: string;
 
   @Field()
   name: string;
+
 }
 
 @ObjectType()
 export class ProductType {
+
   @Field(() => ID)
   _id: string;
 
@@ -20,9 +23,11 @@ export class ProductType {
   @Field()
   slug: string;
 
-  @Field()
+  // GraphQL me ID best practice
+  @Field(() => ID)
   categoryId: string;
 
+  // populated relation
   @Field(() => CategoryDetails, { nullable: true })
   category?: CategoryDetails;
 
@@ -33,7 +38,7 @@ export class ProductType {
   imageUrl?: string;
 
   @Field(() => [String], { nullable: true })
-  tags?: string[];
+  varients?: string[];
 
   @Field({ nullable: true })
   isVeg?: boolean;
@@ -49,4 +54,5 @@ export class ProductType {
 
   @Field()
   updatedAt: Date;
+
 }

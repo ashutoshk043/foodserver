@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -16,10 +17,11 @@ export class CategoryService {
     private readonly categoryModel: Model<Category>,
   ) { }
 
-  // =========================
-  // CREATE CATEGORY
-  // =========================
-  async createCategory(input: CategoryInput) {
+// =========================
+// CREATE CATEGORY
+// =========================
+async createCategory(input: CategoryInput) {
+  try {
 
     const exists = await this.categoryModel.findOne({
       $or: [
@@ -42,15 +44,23 @@ export class CategoryService {
     }
 
     const category = new this.categoryModel(input);
-    return category.save();
-  }
+    return await category.save();
 
-  // =========================
-  // UPDATE CATEGORY
-  // =========================
-  async updateCategory(id: string, input: CategoryInput) {
+  } catch (error) {
+    console.error('Create Category Error:', error);
+    throw new InternalServerErrorException('Failed to create category');
+  }
+}
+
+
+// =========================
+// UPDATE CATEGORY
+// =========================
+async updateCategory(id: string, input: CategoryInput) {
+  try {
 
     const category = await this.categoryModel.findById(id);
+
     if (!category) {
       throw new NotFoundException('Category not found');
     }
@@ -77,18 +87,38 @@ export class CategoryService {
     }
 
     Object.assign(category, input);
-    return category.save();
-  }
 
-  // =========================
-  // GET ALL
-  // =========================
+    return await category.save();
+
+  } catch (error) {
+    console.error('Update Category Error:', error);
+    throw new InternalServerErrorException('Failed to update category');
+  }
+}
+
+
+// =========================
+// DELETE CATEGORY (SOFT DELETE)
+// =========================
 async deleteCategory(id: string) {
-  return this.categoryModel.findByIdAndUpdate(
-    id,
-    { $set: { isDeleted: true } },
-    { new: true }
-  ).lean();
+  try {
+
+    const category = await this.categoryModel.findByIdAndUpdate(
+      id,
+      { $set: { isDeleted: true } },
+      { new: true }
+    ).lean();
+
+    if (!category) {
+      throw new NotFoundException('Category not found');
+    }
+
+    return category;
+
+  } catch (error) {
+    console.error('Delete Category Error:', error);
+    throw new InternalServerErrorException('Failed to delete category');
+  }
 }
 
   async getIncludedCategoriesPaginated(

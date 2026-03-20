@@ -46,7 +46,7 @@ export class AddEditProductsService {
         categoryId: input.categoryId,
         description: input.description ?? '',
         imageUrl: input.imageUrl ?? '',
-        tags: input.tags ?? [],
+        varients: input.varients ?? [],
         isVeg: input.isVeg ?? true,
         isActive: input.isActive ?? true,
         isOnlineVisible: input.isOnlineVisible ?? true,
@@ -56,10 +56,13 @@ export class AddEditProductsService {
         _id: product._id.toString(),
         name: product.name,
         slug: product.slug,
-        categoryId: product.categoryId,
+
+        // ✅ convert to string
+        categoryId: product.categoryId.toString(),
+
         description: product.description ?? '',
         imageUrl: product.imageUrl ?? '',
-        tags: product.tags,
+        varients: product.varients,
         isVeg: product.isVeg,
         isActive: product.isActive,
         isOnlineVisible: product.isOnlineVisible,
@@ -85,14 +88,17 @@ export class AddEditProductsService {
     input: CreateProductInput,
   ): Promise<ProductType> {
     try {
-      // 1️⃣ Prepare update payload (only allowed fields)
+
       const updateData = {
         ...(input.name && { name: input.name }),
         ...(input.slug && { slug: input.slug }),
-        ...(input.categoryId && { categoryId: input.categoryId }),
+
+        // ✅ convert to ObjectId
+        ...(input.categoryId && { categoryId: new Types.ObjectId(input.categoryId) }),
+
         ...(input.description !== undefined && { description: input.description }),
         ...(input.imageUrl !== undefined && { imageUrl: input.imageUrl }),
-        ...(input.tags && { tags: input.tags }),
+        ...(input.varients && { varients: input.varients }),
         ...(input.isVeg !== undefined && { isVeg: input.isVeg }),
         ...(input.isActive !== undefined && { isActive: input.isActive }),
         ...(input.isOnlineVisible !== undefined && {
@@ -100,27 +106,24 @@ export class AddEditProductsService {
         }),
       };
 
-      // 2️⃣ Update product
       const product = await this.productModel.findByIdAndUpdate(
         _id,
         updateData,
         { new: true, runValidators: true },
       );
 
-      // 3️⃣ Not found check
       if (!product) {
         throw new NotFoundException(`Product with ID "${_id}" not found`);
       }
 
-      // 4️⃣ SAFE mapping
       return {
         _id: product._id.toString(),
         name: product.name,
         slug: product.slug,
-        categoryId: product.categoryId,
+        categoryId: product.categoryId.toString(), // also convert here
         description: product.description ?? '',
         imageUrl: product.imageUrl ?? '',
-        tags: product.tags,
+        varients: product.varients,
         isVeg: product.isVeg,
         isActive: product.isActive,
         isOnlineVisible: product.isOnlineVisible,
@@ -129,6 +132,7 @@ export class AddEditProductsService {
       };
 
     } catch (error) {
+
       console.error('Error in updateProduct:', error);
 
       if (error instanceof NotFoundException) {
@@ -165,7 +169,7 @@ export class AddEditProductsService {
 
       // 🔍 Category filter
       if (categoryId) {
-        match.categoryId = categoryId;
+        match.categoryId = new Types.ObjectId(categoryId);
       }
 
       const skip = (page - 1) * limit;
@@ -182,17 +186,12 @@ export class AddEditProductsService {
             as: 'category',
           },
         },
-
         // 🔽 Unwind category safely
         {
           $unwind: {
             path: '$category',
             preserveNullAndEmptyArrays: true,
           },
-        },
-
-        {
-          $sort: { createdAt: -1, _id: -1 },
         },
 
         {
@@ -208,14 +207,13 @@ export class AddEditProductsService {
                   slug: 1,
                   description: 1,
                   imageUrl: 1,
-                  tags: 1,
+                  varients: 1,
                   isVeg: 1,
                   isActive: 1,
                   isOnlineVisible: 1,
                   createdAt: 1,
                   updatedAt: 1,
 
-                  // ✅ SAFE CATEGORY
                   category: {
                     $cond: {
                       if: { $ifNull: ['$category._id', false] },
@@ -240,13 +238,14 @@ export class AddEditProductsService {
       const data = result[0]?.data || [];
       const total = result[0]?.totalCount[0]?.count || 0;
 
+      // console.log(JSON.stringify(data[0]), 'First product in search results');
+
       return {
         data,
         total,
         page,
         limit,
       };
-
     } catch (error) {
       console.error('Error in searchProducts:', error);
       throw new InternalServerErrorException(
@@ -270,10 +269,10 @@ export class AddEditProductsService {
         _id: product._id.toString(),
         name: product.name,
         slug: product.slug,
-        categoryId: product.categoryId,
+        categoryId: product.categoryId.toString(),
         description: product.description ?? '',
         imageUrl: product.imageUrl ?? '',
-        tags: product.tags,
+        varients: product.varients,
         isVeg: product.isVeg,
         isActive: product.isActive,
         isOnlineVisible: product.isOnlineVisible,
@@ -342,5 +341,22 @@ export class AddEditProductsService {
       throw new ServiceUnavailableException('Auth service not reachable');
     }
   }
+
+
+  async getProductById(_id: string): Promise<ProductType> {
+  const product = await this.productModel
+    .findById(new Types.ObjectId(_id))
+    .lean();
+
+  if (!product) {
+    throw new NotFoundException(`Product ${_id} not found`);
+  }
+
+  return {
+    ...product,
+    _id:        product._id.toString(),
+    categoryId: product.categoryId?.toString() ?? null,
+  } as any;
+}
 
 }

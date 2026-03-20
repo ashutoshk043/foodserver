@@ -13,6 +13,9 @@ import { ImportWorkerModule } from '../src/import-worker/import-worker.module';
 import { ProductsModule } from './products/products.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ProductVarientsModule } from './product-varients/product-varients.module';
+import { IngredientMasterModule } from './ingredient-master/ingredient-master.module';
+import { IngredientVarientRecipeModule } from './ingredient-varient-recipe/ingredient-varient-recipe.module';
+import { RestaurantVariantPriceModule } from './restaurant-variant-price/restaurant-variant-price.module';
 
 @Module({
   imports: [
@@ -78,6 +81,12 @@ import { ProductVarientsModule } from './product-varients/product-varients.modul
     CategoriesModule,
 
     ProductVarientsModule,
+
+    IngredientMasterModule,
+
+    IngredientVarientRecipeModule,
+
+    RestaurantVariantPriceModule,
   ],
   controllers: [],
 })
