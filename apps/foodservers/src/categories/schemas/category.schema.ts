@@ -82,4 +82,23 @@ export const CategorySchema = SchemaFactory.createForClass(Category);
 
 /* ================= INDEX ================= */
 
+// 🔍 Search + filtering
 CategorySchema.index({ name: 1 });
+CategorySchema.index({ slug: 1 }, { unique: true });
+
+// ⚡ Active + visibility filters
+CategorySchema.index({ isActive: 1, isDeleted: 1 });
+CategorySchema.index({ isOnlineVisible: 1 });
+
+// 📊 Sorting / priority
+CategorySchema.index({ order: 1, priority: -1 });
+
+// 🎯 Section based filtering (POS / ONLINE)
+CategorySchema.index({ displaySections: 1 });
+
+// 🚀 Combined (most used query)
+CategorySchema.index({
+  isActive: 1,
+  isDeleted: 1,
+  isOnlineVisible: 1,
+});

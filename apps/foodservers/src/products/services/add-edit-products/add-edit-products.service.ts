@@ -174,64 +174,57 @@ export class AddEditProductsService {
 
       const skip = (page - 1) * limit;
 
-      const pipeline: any = [
-        { $match: match },
+const pipeline: any = [
+  { $match: match },
 
-        // 🔗 Join categories
+  {
+    $lookup: {
+      from: 'categories',
+      localField: 'categoryId',
+      foreignField: '_id',
+      as: 'category',
+    },
+  },
+
+  // ❌ remove null categories
+  { $unwind: '$category' },
+
+  // ✅ only active categories
+  {
+    $match: {
+      'category.isActive': true
+    }
+  },
+
+  {
+    $facet: {
+      data: [
+        { $skip: skip },
+        { $limit: limit },
         {
-          $lookup: {
-            from: 'categories',
-            localField: 'categoryId',
-            foreignField: '_id',
-            as: 'category',
+          $project: {
+            _id: 1,
+            name: 1,
+            slug: 1,
+            description: 1,
+            imageUrl: 1,
+            varients: 1,
+            isVeg: 1,
+            isActive: 1,
+            isOnlineVisible: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            category: {
+              id: { $toString: '$category._id' },
+              name: '$category.name',
+            },
           },
         },
-        // 🔽 Unwind category safely
-        {
-          $unwind: {
-            path: '$category',
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-
-        {
-          $facet: {
-            data: [
-              { $skip: skip },
-              { $limit: limit },
-
-              {
-                $project: {
-                  _id: 1,
-                  name: 1,
-                  slug: 1,
-                  description: 1,
-                  imageUrl: 1,
-                  varients: 1,
-                  isVeg: 1,
-                  isActive: 1,
-                  isOnlineVisible: 1,
-                  createdAt: 1,
-                  updatedAt: 1,
-
-                  category: {
-                    $cond: {
-                      if: { $ifNull: ['$category._id', false] },
-                      then: {
-                        id: { $toString: '$category._id' },
-                        name: '$category.name',
-                      },
-                      else: null,
-                    },
-                  },
-                },
-              },
-            ],
-
-            totalCount: [{ $count: 'count' }],
-          },
-        },
-      ];
+      ],
+      totalCount: [{ $count: 'count' }],
+    },
+  },
+];
 
       const result = await this.productModel.aggregate(pipeline);
 

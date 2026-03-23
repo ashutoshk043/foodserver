@@ -36,38 +36,84 @@ export class ProductVariantService {
     const { page = 1, limit = 10, search } = input;
     const skip = (page - 1) * limit;
 
-    const basePipeline: any[] = [
-      {
-        $lookup: {
-          from: 'products',
-          localField: 'productId',
-          foreignField: '_id',
-          as: 'products',
-        },
+const basePipeline: any[] = [
+  // ✅ Variant must be active
+  {
+    $match: {
+      isActive: true,
+    },
+  },
+
+  // 🔗 Join Product
+  {
+    $lookup: {
+      from: 'products',
+      localField: 'productId',
+      foreignField: '_id',
+      as: 'product',
+    },
+  },
+
+  // ❌ remove null products
+  {
+    $unwind: '$product',
+  },
+
+  // ✅ Product must be active
+  {
+    $match: {
+      'product.isActive': true,
+    },
+  },
+
+  // 🔗 Join Category
+  {
+    $lookup: {
+      from: 'categories',
+      localField: 'product.categoryId',
+      foreignField: '_id',
+      as: 'category',
+    },
+  },
+
+  // ❌ remove null category
+  {
+    $unwind: '$category',
+  },
+
+  // ✅ Category must be active
+  {
+    $match: {
+      'category.isActive': true,
+    },
+  },
+
+  // 🔍 Search on product name
+  ...(search
+    ? [{ $match: { 'product.name': { $regex: search, $options: 'i' } } }]
+    : []),
+
+  // 🎯 Final projection
+  {
+    $project: {
+      productId: 1,
+      size: 1,
+      isActive: 1,
+      createdAt: 1,
+      updatedAt: 1,
+
+      product: {
+        _id: '$product._id',
+        name: '$product.name',
       },
-      {
-        $unwind: {
-          path: '$products',
-          preserveNullAndEmptyArrays: true,
-        },
+
+      category: {
+        _id: '$category._id',
+        name: '$category.name',
       },
-      ...(search
-        ? [{ $match: { 'products.name': { $regex: search, $options: 'i' } } }]
-        : []),
-      {
-        $project: {
-          productId: 1,
-          size: 1,
-          isActive: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          product: {
-            _id:  '$products._id',
-            name: '$products.name',
-          },
-        },
-      },
-    ];
+    },
+  },
+];
 
     const [data, countResult] = await Promise.all([
       this.variantModel.aggregate([...basePipeline, { $skip: skip }, { $limit: limit }]),

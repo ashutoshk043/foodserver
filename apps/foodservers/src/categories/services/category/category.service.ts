@@ -17,109 +17,109 @@ export class CategoryService {
     private readonly categoryModel: Model<Category>,
   ) { }
 
-// =========================
-// CREATE CATEGORY
-// =========================
-async createCategory(input: CategoryInput) {
-  try {
+  // =========================
+  // CREATE CATEGORY
+  // =========================
+  async createCategory(input: CategoryInput) {
+    try {
 
-    const exists = await this.categoryModel.findOne({
-      $or: [
-        { slug: input.slug },
-        { name: input.name },
-        { order: input.order },
-      ],
-    });
+      const exists = await this.categoryModel.findOne({
+        $or: [
+          { slug: input.slug },
+          { name: input.name },
+          { order: input.order },
+        ],
+      });
 
-    if (exists) {
-      if (exists.slug === input.slug) {
-        throw new BadRequestException('Category slug already exists');
+      if (exists) {
+        if (exists.slug === input.slug) {
+          throw new BadRequestException('Category slug already exists');
+        }
+        if (exists.name === input.name) {
+          throw new BadRequestException('Category name already exists');
+        }
+        if (exists.order === input.order) {
+          throw new BadRequestException('Category order already exists');
+        }
       }
-      if (exists.name === input.name) {
-        throw new BadRequestException('Category name already exists');
-      }
-      if (exists.order === input.order) {
-        throw new BadRequestException('Category order already exists');
-      }
+
+      const category = new this.categoryModel(input);
+      return await category.save();
+
+    } catch (error) {
+      console.error('Create Category Error:', error);
+      throw new InternalServerErrorException('Failed to create category');
     }
-
-    const category = new this.categoryModel(input);
-    return await category.save();
-
-  } catch (error) {
-    console.error('Create Category Error:', error);
-    throw new InternalServerErrorException('Failed to create category');
   }
-}
 
 
-// =========================
-// UPDATE CATEGORY
-// =========================
-async updateCategory(id: string, input: CategoryInput) {
-  try {
+  // =========================
+  // UPDATE CATEGORY
+  // =========================
+  async updateCategory(id: string, input: CategoryInput) {
+    try {
 
-    const category = await this.categoryModel.findById(id);
+      const category = await this.categoryModel.findById(id);
 
-    if (!category) {
-      throw new NotFoundException('Category not found');
+      if (!category) {
+        throw new NotFoundException('Category not found');
+      }
+
+      const exists = await this.categoryModel.findOne({
+        _id: { $ne: id },
+        $or: [
+          { slug: input.slug },
+          { name: input.name },
+          { order: input.order },
+        ],
+      });
+
+      if (exists) {
+        if (exists.slug === input.slug) {
+          throw new BadRequestException('Category slug already exists');
+        }
+        if (exists.name === input.name) {
+          throw new BadRequestException('Category name already exists');
+        }
+        if (exists.order === input.order) {
+          throw new BadRequestException('Category order already exists');
+        }
+      }
+
+      Object.assign(category, input);
+
+      return await category.save();
+
+    } catch (error) {
+      console.error('Update Category Error:', error);
+      throw new InternalServerErrorException('Failed to update category');
     }
-
-    const exists = await this.categoryModel.findOne({
-      _id: { $ne: id },
-      $or: [
-        { slug: input.slug },
-        { name: input.name },
-        { order: input.order },
-      ],
-    });
-
-    if (exists) {
-      if (exists.slug === input.slug) {
-        throw new BadRequestException('Category slug already exists');
-      }
-      if (exists.name === input.name) {
-        throw new BadRequestException('Category name already exists');
-      }
-      if (exists.order === input.order) {
-        throw new BadRequestException('Category order already exists');
-      }
-    }
-
-    Object.assign(category, input);
-
-    return await category.save();
-
-  } catch (error) {
-    console.error('Update Category Error:', error);
-    throw new InternalServerErrorException('Failed to update category');
   }
-}
 
 
-// =========================
-// DELETE CATEGORY (SOFT DELETE)
-// =========================
-async deleteCategory(id: string) {
-  try {
+  // =========================
+  // DELETE CATEGORY (SOFT DELETE)
+  // =========================
+  async deleteCategory(id: string) {
+    try {
 
-    const category = await this.categoryModel.findByIdAndUpdate(
-      id,
-      { $set: { isDeleted: true } },
-      { new: true }
-    ).lean();
+      const category = await this.categoryModel.findByIdAndUpdate(
+        id,
+        { $set: { isDeleted: true } },
+        { new: true }
+      ).lean();
 
-    if (!category) {
-      throw new NotFoundException('Category not found');
+      if (!category) {
+        throw new NotFoundException('Category not found');
+      }
+
+      return category;
+
+    } catch (error) {
+      console.error('Delete Category Error:', error);
+      throw new InternalServerErrorException('Failed to delete category');
     }
-
-    return category;
-
-  } catch (error) {
-    console.error('Delete Category Error:', error);
-    throw new InternalServerErrorException('Failed to delete category');
   }
-}
 
   async getIncludedCategoriesPaginated(
     page: number = 1,
@@ -135,7 +135,6 @@ async deleteCategory(id: string) {
 
       const query: any = {
         isDeleted: false,
-        isActive: true,
         name: { $not: /^bestseller$/i },
       };
 

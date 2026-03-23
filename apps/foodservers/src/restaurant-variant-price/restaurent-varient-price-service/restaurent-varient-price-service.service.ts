@@ -22,96 +22,137 @@ async findAll(page = 1, limit = 10, search = '') {
   const pipeline: any[] = [
     {
       $match: {
-        // isAvailable: true,
         isDeleted: false,
       },
     },
 
-    // ── Variant lookup ───────────────────────────────────
+    // ── Variant lookup ─────────────────────────────
     {
       $lookup: {
         from: 'productvariants',
         let: { variantId: '$variantId' },
         pipeline: [
-          { $match: { $expr: { $eq: ['$_id', '$$variantId'] } } },
-          { $project: { _id: 1, name: '$size', productId: 1 } },
+          {
+            $match: {
+              $expr: { $eq: ['$_id', '$$variantId'] },
+              isActive: true,
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              name: '$size',
+              productId: 1,
+            },
+          },
         ],
         as: 'variant',
       },
     },
     { $unwind: '$variant' },
 
-    // ── Product lookup ───────────────────────────────────
+    // ── Product lookup ─────────────────────────────
     {
       $lookup: {
         from: 'products',
         let: { productId: '$variant.productId' },
         pipeline: [
-          { $match: { $expr: { $eq: ['$_id', '$$productId'] } } },
-          { $project: { _id: 1, name: 1 } },
+          {
+            $match: {
+              $expr: { $eq: ['$_id', '$$productId'] },
+              isActive: true,
+              isDeleted: false,
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              name: 1,
+            },
+          },
         ],
         as: 'product',
       },
     },
     { $unwind: '$product' },
 
-    // ── Restaurant lookup ────────────────────────────────
+    // ── Restaurant lookup (✅ VERIFIED ONLY) ───────
     {
       $lookup: {
         from: 'restaurants',
         let: { restaurantId: '$restaurantId' },
         pipeline: [
-          { $match: { $expr: { $eq: ['$_id', '$$restaurantId'] } } },
-          { $project: { _id: 1, name: '$restaurantName' } },
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$_id', '$$restaurantId'] },
+                  { $eq: ['$isVerified', true] },
+                ],
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              name: '$restaurantName',
+            },
+          },
         ],
         as: 'restaurant',
       },
     },
     { $unwind: '$restaurant' },
 
-    // ── Project nested objects ───────────────────────────
-{
-  $project: {
-    _id: 1,
-    price: 1,
-    // ✅ $ifNull handles old docs that don't have these fields
-    mrp:                { $ifNull: ['$mrp', 0] },
-    // actualSellingPrice: { $ifNull: ['$actualSellingPrice', 0] },
-    isAvailable: 1,
-    variant: 1,
-    product: 1,
-    restaurant: 1,
-  },
-},
+    // ── Final projection ───────────────────────────
+    {
+      $project: {
+        _id: 1,
+        price: 1,
+        mrp: { $ifNull: ['$mrp', 0] },
+        isAvailable: 1,
+        variant: 1,
+        product: 1,
+        restaurant: 1,
+      },
+    },
 
-    // ── Search on nested fields ──────────────────────────
+    // ── Search ─────────────────────────────────────
     ...(search
       ? [
           {
             $match: {
               $or: [
                 { 'restaurant.name': { $regex: search, $options: 'i' } },
-                { 'product.name':    { $regex: search, $options: 'i' } },
-                { 'variant.name':    { $regex: search, $options: 'i' } },
+                { 'product.name': { $regex: search, $options: 'i' } },
+                { 'variant.name': { $regex: search, $options: 'i' } },
               ],
             },
           },
         ]
       : []),
 
-    { $sort: { 'restaurant.name': 1, 'product.name': 1 } },
+    // ── Sorting ────────────────────────────────────
+    {
+      $sort: {
+        'restaurant.name': 1,
+        'product.name': 1,
+      },
+    },
 
+    // ── Pagination ─────────────────────────────────
     {
       $facet: {
-        data:       [{ $skip: skip }, { $limit: limit }],
+        data: [{ $skip: skip }, { $limit: limit }],
         totalCount: [{ $count: 'count' }],
       },
     },
   ];
 
   const result = await this.recipeModel.aggregate(pipeline);
-  const data   = result[0].data;
-  const total  = result[0].totalCount[0]?.count || 0;
+
+  const data = result[0]?.data || [];
+  const total = result[0]?.totalCount[0]?.count || 0;
   const totalPages = Math.ceil(total / limit);
 
   return {

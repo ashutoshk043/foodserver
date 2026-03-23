@@ -43,5 +43,21 @@ export class ProductVariant {
 }
 
 export const ProductVariantSchema = SchemaFactory.createForClass(ProductVariant);
+
+// 🔥 Already good (keep this)
 ProductVariantSchema.index({ productId: 1, size: 1 }, { unique: true });
-ProductVariantSchema.index({ productId: 1, isActive: 1 });
+
+// ⚡ Fast variant fetch per product
+ProductVariantSchema.index({ productId: 1 });
+
+// 🔍 Active variants
+ProductVariantSchema.index({ isActive: 1 });
+
+// 🚀 COMPOUND INDEX (MOST USED)
+ProductVariantSchema.index({
+  productId: 1,
+  isActive: 1,
+});
+
+// 🧠 For sorting / pagination
+ProductVariantSchema.index({ createdAt: -1 });

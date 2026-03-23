@@ -68,104 +68,148 @@ async findAll(page = 1, limit = 10, search = '') {
 
   const skip = (page - 1) * limit;
 
-  const pipeline: any[] = [
+const pipeline: any[] = [
 
-    {
-      $match: {
-        isDeleted: false,
-        isActive: true
-      }
-    },
-
-    {
-      $lookup: {
-        from: "productvariants",
-        localField: "variantId",
-        foreignField: "_id",
-        as: "variant"
-      }
-    },
-    { $unwind: "$variant" },
-
-    {
-      $lookup: {
-        from: "products",
-        localField: "variant.productId",
-        foreignField: "_id",
-        as: "product"
-      }
-    },
-    { $unwind: "$product" },
-
-    {
-      $lookup: {
-        from: "categories",
-        localField: "product.categoryId",
-        foreignField: "_id",
-        as: "category"
-      }
-    },
-    { $unwind: "$category" },
-
-    {
-      $lookup: {
-        from: "ingredients",
-        localField: "ingredientId",
-        foreignField: "_id",
-        as: "ingredient"
-      }
-    },
-    { $unwind: "$ingredient" },
-
-    {
-      $project: {
-        _id: 1,
-        quantity: 1,
-        variantId: "$variant._id",
-        variantSize: "$variant.size",
-        productId: "$product._id",
-        productName: "$product.name",
-        categoryId: "$category._id",
-        categoryName: "$category.name",
-        ingredientId: "$ingredient._id",
-        ingredientName: "$ingredient.name",
-        unit: "$ingredient.unit"
-      }
-    },
-
-    ...(search
-      ? [
-          {
-            $match: {
-              $or: [
-                { productName: { $regex: search, $options: 'i' } },
-                { variantSize: { $regex: search, $options: 'i' } },
-                { ingredientName: { $regex: search, $options: 'i' } },
-              ],
-            },
-          },
-        ]
-      : []),
-
-    {
-      $sort: {
-        productName: 1,
-        variantSize: 1
-      }
-    },
-
-    {
-      $facet: {
-        data: [
-          { $skip: skip },
-          { $limit: limit }
-        ],
-        totalCount: [
-          { $count: "count" }
-        ]
-      }
+  // ✅ Step 1: Recipe filter
+  {
+    $match: {
+      isDeleted: false,
+      isActive: true
     }
-  ];
+  },
+
+  // 🔗 Variant (only active)
+  {
+    $lookup: {
+      from: "productvariants",
+      let: { vid: "$variantId" },
+      pipeline: [
+        {
+          $match: {
+            $expr: { $eq: ["$_id", "$$vid"] },
+            isActive: true
+          }
+        }
+      ],
+      as: "variant"
+    }
+  },
+  { $unwind: "$variant" },
+
+  // 🔗 Product (only active)
+  {
+    $lookup: {
+      from: "products",
+      let: { pid: "$variant.productId" },
+      pipeline: [
+        {
+          $match: {
+            $expr: { $eq: ["$_id", "$$pid"] },
+            isActive: true,
+            isDeleted: false
+          }
+        }
+      ],
+      as: "product"
+    }
+  },
+  { $unwind: "$product" },
+
+  // 🔗 Category (only active)
+  {
+    $lookup: {
+      from: "categories",
+      let: { cid: "$product.categoryId" },
+      pipeline: [
+        {
+          $match: {
+            $expr: { $eq: ["$_id", "$$cid"] },
+            isActive: true,
+            isDeleted: false
+          }
+        }
+      ],
+      as: "category"
+    }
+  },
+  { $unwind: "$category" },
+
+  // 🔗 Ingredient (only active)
+  {
+    $lookup: {
+      from: "ingredients",
+      let: { iid: "$ingredientId" },
+      pipeline: [
+        {
+          $match: {
+            $expr: { $eq: ["$_id", "$$iid"] },
+            isActive: true,
+            isDeleted: false
+          }
+        }
+      ],
+      as: "ingredient"
+    }
+  },
+  { $unwind: "$ingredient" },
+
+  // 🔍 Search (after join, but filtered data)
+  ...(search
+    ? [
+        {
+          $match: {
+            $or: [
+              { "product.name": { $regex: search, $options: "i" } },
+              { "variant.size": { $regex: search, $options: "i" } },
+              { "ingredient.name": { $regex: search, $options: "i" } }
+            ]
+          }
+        }
+      ]
+    : []),
+
+  // 🎯 Projection
+  {
+    $project: {
+      _id: 1,
+      quantity: 1,
+
+      variantId: "$variant._id",
+      variantSize: "$variant.size",
+
+      productId: "$product._id",
+      productName: "$product.name",
+
+      categoryId: "$category._id",
+      categoryName: "$category.name",
+
+      ingredientId: "$ingredient._id",
+      ingredientName: "$ingredient.name",
+      unit: "$ingredient.unit"
+    }
+  },
+
+  // ⚡ Sorting
+  {
+    $sort: {
+      productName: 1,
+      variantSize: 1
+    }
+  },
+
+  // 📄 Pagination
+  {
+    $facet: {
+      data: [
+        { $skip: skip },
+        { $limit: limit }
+      ],
+      totalCount: [
+        { $count: "count" }
+      ]
+    }
+  }
+];
 
   const result = await this.recipeModel.aggregate(pipeline);
 

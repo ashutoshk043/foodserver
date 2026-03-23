@@ -1,33 +1,3 @@
-// import { Resolver, Mutation, Args, ID, Int, Query } from '@nestjs/graphql';
-// import { ProductVariantService } from '../services/services.service';
-// import { ProductVariantType } from '../types/product-variant.type';
-// import { CreateProductVariantInput } from '../dtos/create-product-variant.input';
-// import { ProductVariantListResponse } from '../types/product-variant-list.response';
-
-// @Resolver(() => ProductVariantType)
-// export class ProductVariantResolver {
-//   constructor(private readonly service: ProductVariantService) {}
-
-//   @Mutation(() => ProductVariantType)
-//   addProductVariant(
-//     @Args('input') input: CreateProductVariantInput,
-//   ) {
-//     return this.service.addProductVariant(input);
-//   }
-
-//   @Mutation(() => ProductVariantType)
-//   updateProductVariant(
-//     @Args('_id', { type: () => ID }) _id: string,
-//     @Args('input') input: CreateProductVariantInput,
-//   ) {
-//     return this.service.updateProductVariant(_id, input);
-//   }
-
-//   @Query(() => [ProductVariantType])
-//   async getProductVariants() {
-//     return this.service.getProductVariants();
-//   }
-// }
 
 import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { ProductVariantType } from '../types/product-variant.type';

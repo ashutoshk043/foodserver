@@ -16,6 +16,10 @@ import { ProductVarientsModule } from './product-varients/product-varients.modul
 import { IngredientMasterModule } from './ingredient-master/ingredient-master.module';
 import { IngredientVarientRecipeModule } from './ingredient-varient-recipe/ingredient-varient-recipe.module';
 import { RestaurantVariantPriceModule } from './restaurant-variant-price/restaurant-variant-price.module';
+import { RestaurantIngredientsStockModule } from './restaurant-ingredients-stock/restaurant-ingredients-stock.module';
+import { OffersModule } from './offers/offers.module';
+import { CouponsModule } from './coupons/coupons.module';
+import { OrdersModule } from './orders/orders.module';
 
 @Module({
   imports: [
@@ -87,6 +91,14 @@ import { RestaurantVariantPriceModule } from './restaurant-variant-price/restaur
     IngredientVarientRecipeModule,
 
     RestaurantVariantPriceModule,
+
+    RestaurantIngredientsStockModule,
+
+    OffersModule,
+
+    CouponsModule,
+
+    OrdersModule,
   ],
   controllers: [],
 })

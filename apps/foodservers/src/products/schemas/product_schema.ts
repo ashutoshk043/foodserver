@@ -49,3 +49,29 @@ export type ProductDocument = Product &
   };
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
+
+
+
+// 🔍 Search
+ProductSchema.index({ name: 1 });
+ProductSchema.index({ slug: 1 }, { unique: true });
+
+// ⚡ Category filtering
+ProductSchema.index({ categoryId: 1 });
+
+// 🔥 Active products query
+ProductSchema.index({ isActive: 1, isDeleted: 1 });
+
+// 📱 Online visibility
+ProductSchema.index({ isOnlineVisible: 1 });
+
+// 🥗 Veg / Non-veg filter
+ProductSchema.index({ isVeg: 1 });
+
+// 🚀 COMPOUND INDEX (MOST IMPORTANT)
+ProductSchema.index({
+  categoryId: 1,
+  isActive: 1,
+  isDeleted: 1,
+  isOnlineVisible: 1,
+});
