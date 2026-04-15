@@ -4,7 +4,7 @@ import { ImportProcessor } from './import.processor';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Product, ProductSchema } from '../products/schemas/product_schema';
 import { Restaurant, RestaurantSchema } from '../restraurent/schemas/restraurent.model';
-import { ImportChunkProcessor } from './import-chunk-processor';
+// import { ImportChunkProcessor } from './import-chunk-processor';
 import { ImportSummary, ImportSummarySchema } from '../products/schemas/import-schema';
 import { ImportGateway } from '../socket/product_import.gateway';
 
@@ -22,7 +22,7 @@ import { ImportGateway } from '../socket/product_import.gateway';
       'restraurentconnection',
     ),
   ],
-  providers: [ImportProcessor, ImportChunkProcessor, ImportGateway],
+  providers: [ImportProcessor, ImportGateway],
   exports: [ImportGateway]
 })
 export class ImportWorkerModule {}

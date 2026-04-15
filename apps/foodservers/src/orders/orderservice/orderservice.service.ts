@@ -1,287 +1,27 @@
-// import { Injectable, BadRequestException } from '@nestjs/common';
-// import { InjectModel } from '@nestjs/mongoose';
-// import { Model, Types } from 'mongoose';
-
-// import { Orders, OrdersDocument }         from '../schemas/orders.schema';
-// import { OrderItems, OrderItemsDocument } from '../schemas/order-items.schema';
-// import { StockLogs, StockLogsDocument }   from '../schemas/stock-logs.schema';
-// import { CreateOrdersInput }              from '../dtos/create-orders.input';
-// import { UpdateOrdersInput }              from '../dtos/update-orders.input';
-
-// @Injectable()
-// export class OrderserviceService {
-//   constructor(
-//     @InjectModel(Orders.name, 'restraurentconnection')
-//     private readonly ordersModel: Model<OrdersDocument>,
-
-//     @InjectModel(OrderItems.name, 'restraurentconnection')
-//     private readonly orderItemsModel: Model<OrderItemsDocument>,
-
-//     @InjectModel(StockLogs.name, 'restraurentconnection')
-//     private readonly stockLogsModel: Model<StockLogsDocument>,
-
-//     // ── We need these 2 collections to deduct stock ───────
-//     // recipes = variant_ingredients
-//     // stock   = restaurant_ingredients
-//     @InjectModel('Recipe', 'restraurentconnection')
-//     private readonly recipeModel: Model<any>,
-
-//     @InjectModel('RestaurantIngredientsStock', 'restraurentconnection')
-//     private readonly stockModel: Model<any>,
-//   ) {}
-
-//   // ── Paginated List ───────────────────────────────────────
-//   async findAll(page = 1, limit = 10, search = '') {
-//     const skip = (page - 1) * limit;
-
-//     const pipeline: any[] = [
-//       { $match: { isDeleted: false } },
-
-//       {
-//         $lookup: {
-//           from: 'restaurants',
-//           let: { restaurantId: '$restaurantId' },
-//           pipeline: [
-//             { $match: { $expr: { $eq: ['$_id', '$$restaurantId'] } } },
-//             { $project: { _id: 1, name: '$restaurantName' } },
-//           ],
-//           as: 'restaurant',
-//         },
-//       },
-//       { $unwind: '$restaurant' },
-
-//       // ── Join order items ─────────────────────────────────
-//       {
-//         $lookup: {
-//           from: 'orderitems',
-//           localField: '_id',
-//           foreignField: 'orderId',
-//           as: 'items',
-//         },
-//       },
-
-//       {
-//         $project: {
-//           _id: 1,
-//           orderType: 1,
-//           status: 1,
-//           subTotal: 1,
-//           discount: 1,
-//           grandTotal: 1,
-//           paymentMode: 1,
-//           createdAt: 1,
-//           restaurant: 1,
-//           items: 1,
-//         },
-//       },
-
-//       ...(search
-//         ? [
-//             {
-//               $match: {
-//                 $or: [
-//                   { orderType:         { $regex: search, $options: 'i' } },
-//                   { status:            { $regex: search, $options: 'i' } },
-//                   { paymentMode:       { $regex: search, $options: 'i' } },
-//                   { 'restaurant.name': { $regex: search, $options: 'i' } },
-//                 ],
-//               },
-//             },
-//           ]
-//         : []),
-
-//       { $sort: { createdAt: -1 } },
-
-//       {
-//         $facet: {
-//           data:       [{ $skip: skip }, { $limit: limit }],
-//           totalCount: [{ $count: 'count' }],
-//         },
-//       },
-//     ];
-
-//     const result     = await this.ordersModel.aggregate(pipeline);
-//     const data       = result[0].data;
-//     const total      = result[0].totalCount[0]?.count || 0;
-//     const totalPages = Math.ceil(total / limit);
-
-//     return {
-//       data, total, page, limit, totalPages,
-//       hasNextPage: page < totalPages,
-//       hasPrevPage: page > 1,
-//     };
-//   }
-
-//   // ── Create Order + Items + Deduct Stock ──────────────────
-//   async create(input: CreateOrdersInput) {
-//     const restaurantId = new Types.ObjectId(input.restaurantId);
-
-//     // ── Step 1: Calculate subTotal from items ────────────
-//     const subTotal   = input.items.reduce((s, i) => s + i.price * i.quantity, 0);
-//     const discount   = input.discount || 0;
-//     const grandTotal = Math.max(0, subTotal - discount);
-
-//     // ── Step 2: Save Order ────────────────────────────────
-//     const order = await new this.ordersModel({
-//       restaurantId,
-//       orderType:   input.orderType,
-//       status:      input.status || 'ACCEPTED',
-//       subTotal,
-//       discount,
-//       grandTotal,
-//       paymentMode: input.paymentMode,
-//     }).save();
-
-//     const orderId = order._id as Types.ObjectId;
-
-//     // ── Step 3: Save Order Items ──────────────────────────
-//     const orderItemDocs = input.items.map(i => ({
-//       orderId,
-//       restaurantId,
-//       productId: new Types.ObjectId(i.productId),
-//       variantId: new Types.ObjectId(i.variantId),
-//       quantity:  i.quantity,
-//       price:     i.price,
-//     }));
-
-//     await this.orderItemsModel.insertMany(orderItemDocs);
-
-//     // ── Step 4: Deduct Inventory ──────────────────────────
-//     await this.deductInventory(orderId, restaurantId, input.items);
-
-//     console.log(`Order ${orderId} created | ₹${grandTotal} | ${input.items.length} item(s)`);
-
-//     return order;
-//   }
-
-//   // ── Inventory Deduction Engine ───────────────────────────
-// private async deductInventory(
-//   orderId:      Types.ObjectId,
-//   restaurantId: Types.ObjectId,
-//   items:        Array<{ variantId: string; quantity: number }>,
-// ) {
-// //   console.log('🔧 deductInventory START', JSON.stringify({ orderId, restaurantId, items }, null, 2));
-
-//   for (const item of items) {
-//     const variantId = new Types.ObjectId(item.variantId);
-
-//     // console.log('📦 Processing item:', JSON.stringify({ variantId: variantId.toString(), quantity: item.quantity }));
-
-//     const recipes = await this.recipeModel.find({
-//       variantId,
-//       isDeleted: { $ne: true },
-//       isActive:  true,
-//     }).lean();
-
-//     // console.log(`📋 Recipes found for variant ${variantId}:`, JSON.stringify(recipes, null, 2));
-
-//     if (!recipes.length) {
-//       console.warn(`⚠️ No recipe found for variantId=${variantId} — skipping inventory deduction`);
-//       continue;
-//     }
-
-//     for (const recipe of recipes) {
-//       const ingredientId = recipe.ingredientId as Types.ObjectId;
-//       const requiredQty  = recipe.quantity * item.quantity;
-
-//     //   console.log('🧪 Recipe detail:', JSON.stringify({
-//     //     recipeId:      recipe._id,
-//     //     ingredientId:  ingredientId.toString(),
-//     //     recipeQty:     recipe.quantity,
-//     //     orderQty:      item.quantity,
-//     //     requiredQty,
-//     //   }));
-
-//       const stockEntry = await this.stockModel.findOne({ restaurantId, ingredientId });
-
-//     //   console.log('🏪 Stock entry found:', JSON.stringify(stockEntry, null, 2));
-
-//       if (!stockEntry) {
-//         console.warn(`❌ Stock entry MISSING: restaurant=${restaurantId} ingredient=${ingredientId}`);
-//         continue;
-//       }
-
-//       const newQty = stockEntry.availableQty - requiredQty;
-
-//     //   console.log('📉 Stock deduction calc:', JSON.stringify({
-//     //     ingredientId:   ingredientId.toString(),
-//     //     before:         stockEntry.availableQty,
-//     //     deducting:      requiredQty,
-//     //     after:          newQty,
-//     //     alertLevel:     stockEntry.alertLevel,
-//     //   }));
-
-//       await this.stockModel.findByIdAndUpdate(
-//         stockEntry._id,
-//         { $inc: { availableQty: -requiredQty } },
-//       );
-
-//     //   console.log(`✅ Stock updated for ingredient=${ingredientId} | ${stockEntry.availableQty} → ${newQty}`);
-
-//       if (newQty < 0) {
-//         console.warn(`🔴 NEGATIVE STOCK: ingredient=${ingredientId} newQty=${newQty}`);
-//       }
-
-//       if (newQty <= stockEntry.alertLevel) {
-//         console.warn(`🔔 LOW STOCK ALERT: ingredient=${ingredientId} qty=${newQty} alertLevel=${stockEntry.alertLevel}`);
-//       }
-
-//       const log = await new this.stockLogsModel({
-//         restaurantId,
-//         ingredientId,
-//         changeQty:   -requiredQty,
-//         reason:      'ORDER',
-//         referenceId: orderId,
-//         note:        `Auto deducted for order ${orderId}`,
-//       }).save();
-
-//       // console.log('📝 Stock log saved:', JSON.stringify(log, null, 2));
-//     }
-//   }
-
-// //   console.log('✅ deductInventory COMPLETE for orderId:', orderId.toString());
-// }
-//   // ── Update Order Status ──────────────────────────────────
-//   async update(input: UpdateOrdersInput) {
-//     const { _id, ...rest } = input;
-
-//     return this.ordersModel.findByIdAndUpdate(
-//       new Types.ObjectId(_id),
-//       { $set: rest },
-//       { new: true },
-//     );
-//   }
-
-//   // ── Soft Delete ──────────────────────────────────────────
-//   async remove(id: string) {
-//     await this.ordersModel.findByIdAndUpdate(
-//       new Types.ObjectId(id),
-//       { $set: { isDeleted: true } },
-//     );
-//     return true;
-//   }
-// }
-
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
+import { Model, Types, Connection, ClientSession } from 'mongoose';
 
-import { Orders, OrdersDocument }         from '../schemas/orders.schema';
+import { Orders, OrdersDocument } from '../schemas/orders.schema';
 import { OrderItems, OrderItemsDocument } from '../schemas/order-items.schema';
-import { StockLogs, StockLogsDocument }   from '../schemas/stock-logs.schema';
-import { CreateOrdersInput }              from '../dtos/create-orders.input';
-import { UpdateOrdersInput }              from '../dtos/update-orders.input';
+import { StockLogs, StockLogsDocument } from '../schemas/stock-logs.schema';
+import { CreateOrdersInput } from '../dtos/create-orders.input';
+import { UpdateOrdersInput } from '../dtos/update-orders.input';
 
-import { Recipe }                    from '../../ingredient-varient-recipe/schemas/recipe.schema';
+import { Recipe } from '../../ingredient-varient-recipe/schemas/recipe.schema';
 import { RestaurantIngredientsStock } from '../../restaurant-ingredients-stock/schemas/restaurant-ingredients-stock.schema';
+import { RestaurantVariantPrice } from '../../restaurant-variant-price/schemas/restaurant-variant-price.schema';
+import { Coupons } from '../../coupons/schemas/coupons.schema';
 
-// ── Status groups ────────────────────────────────────────
-const ACTIVE_STATUSES    = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'DELIVERED'];
+const ACTIVE_STATUSES = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'DELIVERED'];
 const CANCELLED_STATUSES = ['CANCELLED'];
 
 @Injectable()
 export class OrderserviceService {
   constructor(
+    @InjectConnection('restraurentconnection')
+    private readonly connection: Connection,
+
     @InjectModel(Orders.name, 'restraurentconnection')
     private readonly ordersModel: Model<OrdersDocument>,
 
@@ -296,15 +36,20 @@ export class OrderserviceService {
 
     @InjectModel(RestaurantIngredientsStock.name, 'restraurentconnection')
     private readonly stockModel: Model<any>,
-  ) {}
 
-  // ── Paginated List ───────────────────────────────────────
+    @InjectModel(RestaurantVariantPrice.name, 'restraurentconnection')
+    private readonly variantPriceModel: Model<any>,
+
+    @InjectModel(Coupons.name, 'restraurentconnection')
+    private readonly couponsModel: Model<any>,
+  ) { }
+
+  // ── Paginated List ────────────────────────────────────────
   async findAll(page = 1, limit = 10, search = '') {
     const skip = (page - 1) * limit;
 
     const pipeline: any[] = [
       { $match: { isDeleted: false } },
-
       {
         $lookup: {
           from: 'restaurants',
@@ -317,7 +62,6 @@ export class OrderserviceService {
         },
       },
       { $unwind: '$restaurant' },
-
       {
         $lookup: {
           from: 'orderitems',
@@ -326,48 +70,38 @@ export class OrderserviceService {
           as: 'items',
         },
       },
-
       {
         $project: {
-          _id: 1,
-          orderType: 1,
-          status: 1,
-          subTotal: 1,
-          discount: 1,
-          grandTotal: 1,
-          paymentMode: 1,
-          createdAt: 1,
-          restaurant: 1,
-          items: 1,
+          _id: 1, orderType: 1, status: 1, subTotal: 1,
+          discount: 1, grandTotal: 1, paymentMode: 1,
+          createdAt: 1, restaurant: 1, items: 1, orderNumber: 1,
         },
       },
-
       ...(search
         ? [{
-            $match: {
-              $or: [
-                { orderType:         { $regex: search, $options: 'i' } },
-                { status:            { $regex: search, $options: 'i' } },
-                { paymentMode:       { $regex: search, $options: 'i' } },
-                { 'restaurant.name': { $regex: search, $options: 'i' } },
-              ],
-            },
-          }]
+          $match: {
+            $or: [
+              { orderType: { $regex: search, $options: 'i' } },
+              { orderNumber: { $regex: search, $options: 'i' } },
+              { status: { $regex: search, $options: 'i' } },
+              { paymentMode: { $regex: search, $options: 'i' } },
+              { 'restaurant.name': { $regex: search, $options: 'i' } },
+            ],
+          },
+        }]
         : []),
-
       { $sort: { createdAt: -1 } },
-
       {
         $facet: {
-          data:       [{ $skip: skip }, { $limit: limit }],
+          data: [{ $skip: skip }, { $limit: limit }],
           totalCount: [{ $count: 'count' }],
         },
       },
     ];
 
-    const result     = await this.ordersModel.aggregate(pipeline);
-    const data       = result[0].data;
-    const total      = result[0].totalCount[0]?.count || 0;
+    const result = await this.ordersModel.aggregate(pipeline);
+    const data = result[0].data;
+    const total = result[0].totalCount[0]?.count || 0;
     const totalPages = Math.ceil(total / limit);
 
     return {
@@ -377,254 +111,398 @@ export class OrderserviceService {
     };
   }
 
-  // ── Create Order ─────────────────────────────────────────
+  // ── Create Order ──────────────────────────────────────────
   async create(input: CreateOrdersInput) {
-    const restaurantId = new Types.ObjectId(input.restaurantId);
+    const session = await this.connection.startSession();
 
-    const subTotal   = input.items.reduce((s, i) => s + i.price * i.quantity, 0);
-    const discount   = input.discount || 0;
-    const grandTotal = Math.max(0, subTotal - discount);
+    try {
+      session.startTransaction();
 
-    const order = await new this.ordersModel({
-      restaurantId,
-      orderType:   input.orderType,
-      status:      input.status || 'ACCEPTED',
-      subTotal,
-      discount,
-      grandTotal,
-      paymentMode: input.paymentMode,
-    }).save();
+      const restaurantId = new Types.ObjectId(input.restaurantId);
+      const variantIds = input.items.map(i => new Types.ObjectId(i.variantId));
 
-    const orderId = order._id as Types.ObjectId;
-
-    // ── Save order items ─────────────────────────────────
-    const orderItemDocs = input.items.map(i => ({
-      orderId,
-      restaurantId,
-      productId: new Types.ObjectId(i.productId),
-      variantId: new Types.ObjectId(i.variantId),
-      quantity:  i.quantity,
-      price:     i.price,
-    }));
-
-    await this.orderItemsModel.insertMany(orderItemDocs);
-
-    // ── Deduct inventory ─────────────────────────────────
-    await this.applyInventory(orderId, restaurantId, input.items, 'DEDUCT');
-
-    console.log(`✅ Order ${orderId} created | ₹${grandTotal} | ${input.items.length} items`);
-
-    return order;
-  }
-
-  // ── Update Order ─────────────────────────────────────────
-  async update(input: UpdateOrdersInput) {
-    const { _id, ...rest } = input;
-    const orderId = new Types.ObjectId(_id);
-
-    // ── Fetch existing order ─────────────────────────────
-    const existingOrder = await this.ordersModel.findById(orderId).lean();
-
-    if (!existingOrder) throw new Error(`Order ${_id} not found`);
-
-    const restaurantId  = existingOrder.restaurantId as Types.ObjectId;
-    const oldStatus     = existingOrder.status;
-    const newStatus     = rest.status;
-
-    console.log(`📝 Update Order ${_id} | oldStatus=${oldStatus} newStatus=${newStatus || 'unchanged'}`);
-
-    // ═══════════════════════════════════════════════════════
-    // SCENARIO 1: Active → CANCELLED
-    // Restore all inventory back
-    // ═══════════════════════════════════════════════════════
-    if (
-      ACTIVE_STATUSES.includes(oldStatus) &&
-      newStatus && CANCELLED_STATUSES.includes(newStatus)
-    ) {
-      console.log('🔄 SCENARIO 1: Order cancelled → restoring inventory');
-
-      const oldItems = await this.orderItemsModel
-        .find({ orderId })
+      // ── 1. Validate all variants in ONE query ────────────
+      const variantPrices: any[] = await this.variantPriceModel
+        .find({ restaurantId, variantId: { $in: variantIds }, isDeleted: false })
+        .session(session)
         .lean();
 
-      const itemsForRestore = oldItems.map((i: any) => ({
-        variantId: i.variantId.toString(),
-        quantity:  i.quantity,
-      }));
+      const variantPriceMap = new Map<string, any>(
+        variantPrices.map(v => [v.variantId.toString(), v]),
+      );
 
-      await this.applyInventory(orderId, restaurantId, itemsForRestore, 'RESTORE');
-    }
+      for (const item of input.items) {
+        const vp = variantPriceMap.get(item.variantId);
 
-    // ═══════════════════════════════════════════════════════
-    // SCENARIO 2: CANCELLED → Active (re-activate)
-    // Re-deduct inventory
-    // ═══════════════════════════════════════════════════════
-    else if (
-      CANCELLED_STATUSES.includes(oldStatus) &&
-      newStatus && ACTIVE_STATUSES.includes(newStatus)
-    ) {
-      console.log('🔄 SCENARIO 2: Order re-activated → re-deducting inventory');
-
-      const oldItems = await this.orderItemsModel
-        .find({ orderId })
-        .lean();
-
-      const itemsForDeduct = oldItems.map((i: any) => ({
-        variantId: i.variantId.toString(),
-        quantity:  i.quantity,
-      }));
-
-      await this.applyInventory(orderId, restaurantId, itemsForDeduct, 'DEDUCT');
-    }
-
-    // ═══════════════════════════════════════════════════════
-    // SCENARIO 3: Edit items (new items provided)
-    // Reverse old → apply new
-    // ═══════════════════════════════════════════════════════
-    else if (rest.items && rest.items.length > 0 && ACTIVE_STATUSES.includes(oldStatus)) {
-      console.log('🔄 SCENARIO 3: Items changed → reversing old, applying new');
-
-      // Step A: Restore old items
-      const oldItems = await this.orderItemsModel.find({ orderId }).lean();
-      const oldForRestore = oldItems.map((i: any) => ({
-        variantId: i.variantId.toString(),
-        quantity:  i.quantity,
-      }));
-      await this.applyInventory(orderId, restaurantId, oldForRestore, 'RESTORE');
-
-      // Step B: Delete old order items
-      await this.orderItemsModel.deleteMany({ orderId });
-
-      // Step C: Save new order items
-      const newItemDocs = rest.items.map((i: any) => ({
-        orderId,
-        restaurantId,
-        productId: new Types.ObjectId(i.productId),
-        variantId: new Types.ObjectId(i.variantId),
-        quantity:  i.quantity,
-        price:     i.price,
-      }));
-      await this.orderItemsModel.insertMany(newItemDocs);
-
-      // Step D: Deduct new items
-      await this.applyInventory(orderId, restaurantId, rest.items, 'DEDUCT');
-
-      // Step E: Recalculate totals
-      const newSubTotal   = rest.items.reduce((s: number, i: any) => s + i.price * i.quantity, 0);
-      const newDiscount   = rest.discount ?? existingOrder.discount ?? 0;
-      const newGrandTotal = Math.max(0, newSubTotal - newDiscount);
-
-      rest.subTotal   = newSubTotal;
-      rest.grandTotal = newGrandTotal;
-      rest.discount   = newDiscount;
-
-      // Remove items from rest so it's not saved in order doc
-      delete rest.items;
-    }
-
-    // ── Save updated order ───────────────────────────────
-    const updated = await this.ordersModel.findByIdAndUpdate(
-      orderId,
-      { $set: rest },
-      { new: true },
-    );
-
-    console.log(`✅ Order ${_id} updated | newStatus=${updated?.status}`);
-
-    return updated;
-  }
-
-  // ── Soft Delete ──────────────────────────────────────────
-  async remove(id: string) {
-    const orderId = new Types.ObjectId(id);
-
-    const order = await this.ordersModel.findById(orderId).lean();
-
-    if (order && ACTIVE_STATUSES.includes(order.status)) {
-      console.log('🗑️ Delete: restoring inventory before soft delete');
-
-      const items = await this.orderItemsModel.find({ orderId }).lean();
-      const itemsForRestore = items.map((i: any) => ({
-        variantId: i.variantId.toString(),
-        quantity:  i.quantity,
-      }));
-
-      await this.applyInventory(orderId, order.restaurantId as Types.ObjectId, itemsForRestore, 'RESTORE');
-    }
-
-    await this.ordersModel.findByIdAndUpdate(orderId, { $set: { isDeleted: true } });
-
-    return true;
-  }
-
-  // ════════════════════════════════════════════════════════
-  // CORE: Apply Inventory — DEDUCT or RESTORE
-  // ════════════════════════════════════════════════════════
-  private async applyInventory(
-    orderId:      Types.ObjectId,
-    restaurantId: Types.ObjectId,
-    items:        Array<{ variantId: string; quantity: number }>,
-    mode:         'DEDUCT' | 'RESTORE',
-  ) {
-    console.log(`🔧 applyInventory [${mode}] START`, JSON.stringify({ orderId, items }));
-
-    for (const item of items) {
-      const variantId = new Types.ObjectId(item.variantId);
-
-      const recipes = await this.recipeModel.find({
-        variantId,
-        isDeleted: { $ne: true },
-        isActive:  true,
-      }).lean();
-
-      if (!recipes.length) {
-        console.warn(`⚠️ No recipe for variantId=${variantId} — skipping`);
-        continue;
+        if (!vp) {
+          throw new Error(
+            `Variant not found: variantId=${item.variantId} for restaurant=${input.restaurantId}`,
+          );
+        }
+        if (!vp.isAvailable) {
+          throw new Error(`Variant is not available: variantId=${item.variantId}`);
+        }
+        if (item.price !== vp.price) {
+          throw new Error(
+            `Price mismatch for variantId=${item.variantId}: ` +
+            `frontend sent ₹${item.price}, DB has ₹${vp.price}`,
+          );
+        }
       }
 
-      for (const recipe of recipes) {
-        const ingredientId = recipe.ingredientId as Types.ObjectId;
-        const requiredQty  = recipe.quantity * item.quantity;
+      // ── 2. Compute totals ────────────────────────────────
+      const subTotal = input.items.reduce((s, i) => s + i.price * i.quantity, 0);
+      const discount = input.discount || 0;
+      const grandTotal = Math.max(0, subTotal - discount);
 
-        // DEDUCT = negative, RESTORE = positive
-        const changeQty = mode === 'DEDUCT' ? -requiredQty : +requiredQty;
+      // ── 3. Generate unique, collision-safe order number ──
+      let orderNumber: string;
+      let exists = true;
 
-        const stockEntry = await this.stockModel.findOne({ restaurantId, ingredientId });
+      do {
+        // ── 3. Generate sequential order number ─────────────────
+        orderNumber = await this.generateOrderNumber(session);
+        exists = !!(await this.ordersModel.exists({ orderNumber }).session(session));
+      } while (exists);
 
-        if (!stockEntry) {
-          console.warn(`❌ Stock entry missing: ingredient=${ingredientId}`);
-          continue;
-        }
+      // ── 4. Create order ──────────────────────────────────
+      const [order] = await this.ordersModel.create(
+        [{
+          orderNumber,                         // ← human-readable ID
+          restaurantId,
+          orderType: input.orderType,
+          status: input.status || 'ACCEPTED',
+          subTotal,
+          discount,
+          grandTotal,
+          paymentMode: input.paymentMode,
+        }],
+        { session },
+      );
 
-        // ── Update stock ────────────────────────────────
-        await this.stockModel.findByIdAndUpdate(
-          stockEntry._id,
-          { $inc: { availableQty: changeQty } },
+      const orderId = order._id as Types.ObjectId;
+
+      // ── 5. Save order items ──────────────────────────────
+      await this.orderItemsModel.insertMany(
+        input.items.map(i => ({
+          orderNumber,   // ← denormalized for easier debugging & reporting
+          orderId,
+          restaurantId,
+          productId: new Types.ObjectId(i.productId),
+          variantId: new Types.ObjectId(i.variantId),
+          quantity: i.quantity,
+          price: i.price,
+        })),
+        { session },
+      );
+
+      // ── 6. Deduct inventory ──────────────────────────────
+      await this.applyInventory(orderId, restaurantId, input.items, 'DEDUCT', session, orderNumber);
+
+      await session.commitTransaction();
+
+      console.log(`✅ Order ${orderNumber} (${orderId}) created | ₹${grandTotal} | ${input.items.length} items`);
+
+      return order;
+
+    } catch (err) {
+      await session.abortTransaction();
+      console.error('❌ create() rolled back:', err.message);
+      throw err;
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  // ── Update Order ──────────────────────────────────────────
+  async update(input: UpdateOrdersInput) {
+    const session = await this.connection.startSession();
+
+    try {
+      session.startTransaction();
+
+      const { _id, ...rest } = input;
+      const orderId = new Types.ObjectId(_id);
+
+      const existingOrder = await this.ordersModel
+        .findById(orderId)
+        .session(session)
+        .lean();
+
+      if (!existingOrder) throw new Error(`Order ${_id} not found`);
+
+      const restaurantId = existingOrder.restaurantId as Types.ObjectId;
+      const oldStatus = existingOrder.status;
+      const newStatus = rest.status;
+
+      console.log(`📝 Update Order ${_id} | oldStatus=${oldStatus} newStatus=${newStatus || 'unchanged'}`);
+
+      // ── SCENARIO 1: Active → CANCELLED ──────────────────
+      if (
+        ACTIVE_STATUSES.includes(oldStatus) &&
+        newStatus && CANCELLED_STATUSES.includes(newStatus)
+      ) {
+        console.log('🔄 SCENARIO 1: Order cancelled → restoring inventory');
+
+        const oldItems = await this.orderItemsModel.find({ orderId }).session(session).lean();
+        await this.applyInventory(
+          orderId, restaurantId,
+          oldItems.map((i: any) => ({ variantId: i.variantId.toString(), quantity: i.quantity })),
+          'RESTORE', session,
+          existingOrder.orderNumber // ← pass the order number
+        );
+      }
+
+      // ── SCENARIO 2: CANCELLED → Active ──────────────────
+      else if (
+        CANCELLED_STATUSES.includes(oldStatus) &&
+        newStatus && ACTIVE_STATUSES.includes(newStatus)
+      ) {
+        console.log('🔄 SCENARIO 2: Order re-activated → re-deducting inventory');
+
+        const oldItems = await this.orderItemsModel.find({ orderId }).session(session).lean();
+        await this.applyInventory(
+          orderId, restaurantId,
+          oldItems.map((i: any) => ({ variantId: i.variantId.toString(), quantity: i.quantity })),
+          'DEDUCT', session, existingOrder.orderNumber
+        );
+      }
+
+      // ── SCENARIO 3: Items changed ────────────────────────
+      else if (rest.items && rest.items.length > 0 && ACTIVE_STATUSES.includes(oldStatus)) {
+        console.log('🔄 SCENARIO 3: Items changed → reversing old, applying new');
+
+        const oldItems = await this.orderItemsModel.find({ orderId }).session(session).lean();
+
+        // Restore old → delete old → insert new → deduct new (all batched)
+        await this.applyInventory(
+          orderId, restaurantId,
+          oldItems.map((i: any) => ({ variantId: i.variantId.toString(), quantity: i.quantity })),
+          'RESTORE', session, existingOrder.orderNumber
         );
 
-        const newQty = stockEntry.availableQty + changeQty;
+        await this.orderItemsModel.deleteMany({ orderId }, { session });
 
-        console.log(`${mode === 'DEDUCT' ? '📉' : '📈'} Stock ${mode}: ingredient=${ingredientId} | ${stockEntry.availableQty} → ${newQty}`);
+        await this.orderItemsModel.insertMany(
+          rest.items.map((i: any) => ({
+            orderId,
+            restaurantId,
+            productId: new Types.ObjectId(i.productId),
+            variantId: new Types.ObjectId(i.variantId),
+            quantity: i.quantity,
+            price: i.price,
+          })),
+          { session },
+        );
 
-        if (mode === 'DEDUCT') {
-          if (newQty < 0)
-            console.warn(`🔴 NEGATIVE STOCK: ingredient=${ingredientId} qty=${newQty}`);
-          if (newQty <= stockEntry.alertLevel)
-            console.warn(`🔔 LOW STOCK: ingredient=${ingredientId} qty=${newQty} alert=${stockEntry.alertLevel}`);
-        }
+        await this.applyInventory(orderId, restaurantId, rest.items, 'DEDUCT', session, existingOrder.orderNumber);
 
-        // ── Write stock log ─────────────────────────────
-        await new this.stockLogsModel({
-          restaurantId,
-          ingredientId,
-          changeQty,
-          reason:      mode === 'DEDUCT' ? 'ORDER' : 'RETURN',
-          referenceId: orderId,
-          note:        `${mode} for order ${orderId}`,
-        }).save();
+        const newSubTotal = rest.items.reduce((s: number, i: any) => s + i.price * i.quantity, 0);
+        const newDiscount = rest.discount ?? existingOrder.discount ?? 0;
+        rest.subTotal = newSubTotal;
+        rest.grandTotal = Math.max(0, newSubTotal - newDiscount);
+        rest.discount = newDiscount;
+        delete rest.items;
+      }
+
+      const updated = await this.ordersModel.findByIdAndUpdate(
+        orderId,
+        { $set: rest },
+        { new: true, session },
+      );
+
+      await session.commitTransaction();
+
+      console.log(`✅ Order ${_id} updated | newStatus=${updated?.status}`);
+
+      return updated;
+
+    } catch (err) {
+      await session.abortTransaction();
+      console.error('❌ update() rolled back:', err.message);
+      throw err;
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  // ── Soft Delete ───────────────────────────────────────────
+  async remove(id: string) {
+    const session = await this.connection.startSession();
+
+    try {
+      session.startTransaction();
+
+      const orderId = new Types.ObjectId(id);
+      const order = await this.ordersModel.findById(orderId).session(session).lean();
+
+      if (order && ACTIVE_STATUSES.includes(order.status)) {
+        const items = await this.orderItemsModel.find({ orderId }).session(session).lean();
+
+        await this.applyInventory(
+          orderId,
+          order.restaurantId as Types.ObjectId,
+          items.map((i: any) => ({ variantId: i.variantId.toString(), quantity: i.quantity })),
+          'RESTORE',
+          session,
+          order.orderNumber
+        );
+      }
+
+      await this.ordersModel.findByIdAndUpdate(orderId, { $set: { isDeleted: true } }, { session });
+
+      await session.commitTransaction();
+
+      return true;
+
+    } catch (err) {
+      await session.abortTransaction();
+      console.error('❌ remove() rolled back:', err.message);
+      throw err;
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  // ════════════════════════════════════════════════════════
+  // CORE: Apply Inventory — batched, single-pass
+  // ════════════════════════════════════════════════════════
+  private async applyInventory(
+    orderId: Types.ObjectId,
+    restaurantId: Types.ObjectId,
+    items: Array<{ variantId: string; quantity: number }>,
+    mode: 'DEDUCT' | 'RESTORE',
+    session: ClientSession,
+    orderNumber: string,
+  ) {
+    console.log(`🔧 applyInventory [${mode}] START`);
+
+    const variantIds = items.map(i => new Types.ObjectId(i.variantId));
+
+    // ── 1. Fetch ALL recipes in one query ────────────────
+    const recipes: any[] = await this.recipeModel
+      .find({ variantId: { $in: variantIds }, isDeleted: { $ne: true }, isActive: true })
+      .session(session)
+      .lean();
+
+    // Group recipes by variantId for O(1) lookup
+    const recipeMap = new Map<string, any[]>();
+    for (const r of recipes) {
+      const key = r.variantId.toString();
+      const list = recipeMap.get(key) ?? [];
+      list.push(r);
+      recipeMap.set(key, list);
+    }
+
+    // Validate all variants have recipes before touching stock
+    for (const item of items) {
+      if (!recipeMap.has(item.variantId)) {
+        throw new Error(`No recipe found for variantId=${item.variantId} — order cannot be placed`);
       }
     }
 
+    // ── 2. Resolve all required ingredient changes ───────
+    // Map: ingredientId → { totalChange, alertLevel (from stock) }
+    const ingredientChangeMap = new Map<string, number>();
+
+    for (const item of items) {
+      const itemRecipes = recipeMap.get(item.variantId) || [];
+
+      for (const recipe of itemRecipes) {
+        const key = recipe.ingredientId.toString();
+        const requiredQty = recipe.quantity * item.quantity;
+        const changeQty = mode === 'DEDUCT' ? -requiredQty : +requiredQty;
+
+        ingredientChangeMap.set(key, (ingredientChangeMap.get(key) || 0) + changeQty);
+      }
+    }
+
+    const ingredientIds = [...ingredientChangeMap.keys()].map(id => new Types.ObjectId(id));
+
+    // ── 3. Fetch ALL stock entries in one query ──────────
+    const stockEntries: any[] = await this.stockModel
+      .find({ restaurantId, ingredientId: { $in: ingredientIds } })
+      .session(session)
+      .lean();
+
+    const stockMap = new Map<string, any>(
+      stockEntries.map(s => [s.ingredientId.toString(), s]),
+    );
+
+    // ── 4. Validate before writing ───────────────────────
+    for (const [ingredientIdStr, changeQty] of ingredientChangeMap) {
+      const stock = stockMap.get(ingredientIdStr);
+
+      if (!stock) {
+        throw new Error(`Stock entry missing for ingredient=${ingredientIdStr}`);
+      }
+
+      if (mode === 'DEDUCT' && stock.availableQty + changeQty < 0) {
+        throw new Error(
+          `Insufficient stock for ingredient=${ingredientIdStr}: ` +
+          `available=${stock.availableQty}, required=${Math.abs(changeQty)}`,
+        );
+      }
+    }
+
+    // ── 5. Bulk update all stock in ONE roundtrip ────────
+    await this.stockModel.bulkWrite(
+      [...ingredientChangeMap.entries()].map(([ingredientIdStr, changeQty]) => ({
+        updateOne: {
+          filter: { _id: stockMap.get(ingredientIdStr)._id },
+          update: { $inc: { availableQty: changeQty } },
+        },
+      })),
+      { session },
+    );
+
+    // ── 6. Log & warn (in memory, no extra DB calls) ─────
+    const stockLogDocs: any[] = [];
+
+    for (const [ingredientIdStr, changeQty] of ingredientChangeMap) {
+      const stock = stockMap.get(ingredientIdStr);
+      const newQty = stock.availableQty + changeQty;
+
+      console.log(
+        `${mode === 'DEDUCT' ? '📉' : '📈'} ${mode}: ingredient=${ingredientIdStr}` +
+        ` | ${stock.availableQty} → ${newQty}`,
+      );
+
+      if (mode === 'DEDUCT' && newQty <= stock.alertLevel) {
+        console.warn(`🔔 LOW STOCK: ingredient=${ingredientIdStr} qty=${newQty} alert=${stock.alertLevel}`);
+      }
+
+      stockLogDocs.push({
+        restaurantId,
+        ingredientId: new Types.ObjectId(ingredientIdStr),
+        changeQty,
+        reason: mode === 'DEDUCT' ? 'ORDER' : 'RETURN',
+        referenceId: orderId,
+        note: `${mode} for order ${orderNumber}`,  // ← was orderId, now orderNumber
+        orderNumber,                                // ← new field
+      });
+    }
+
+    // ── 7. Insert ALL stock logs in ONE query ────────────
+    await this.stockLogsModel.insertMany(stockLogDocs, { session });
+
     console.log(`✅ applyInventory [${mode}] COMPLETE`);
+  }
+
+  // ── Utility: generate unique order number ────────────────
+  private async generateOrderNumber(session: ClientSession): Promise<string> {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, ''); // "20250324"
+    const prefix = `ORD-${today}-`;
+
+    // Count today's orders to get the next sequence number
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const count = await this.ordersModel
+      .countDocuments({ createdAt: { $gte: todayStart } })
+      .session(session);
+
+    const sequence = String(count + 1).padStart(4, '0'); // "0001", "0042", "1000"
+    return `${prefix}${sequence}`;                        // "ORD-20250324-0001"
   }
 }

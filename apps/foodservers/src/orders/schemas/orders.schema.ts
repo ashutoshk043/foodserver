@@ -51,6 +51,9 @@ export class Orders {
 
   @Prop({ default: false })
   isDeleted: boolean;
+
+  @Prop({ type: String, unique: true, index: true })
+orderNumber: string;
 }
 
 export const OrdersSchema = SchemaFactory.createForClass(Orders);

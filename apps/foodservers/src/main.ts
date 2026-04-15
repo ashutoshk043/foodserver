@@ -45,6 +45,8 @@ function resolveProtoFromPackage(): string {
 async function bootstrap() {
   try {
 
+    // const app = await NestFactory.create(AppModule, { bodyParser: false });
+
     const app = await NestFactory.create(AppModule);
 
     // Enable CORS

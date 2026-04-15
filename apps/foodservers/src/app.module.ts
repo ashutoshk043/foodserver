@@ -20,6 +20,9 @@ import { RestaurantIngredientsStockModule } from './restaurant-ingredients-stock
 import { OffersModule } from './offers/offers.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { OrdersModule } from './orders/orders.module';
+import { StockLogsModule } from './stock-logs/stock-logs.module';
+import { CloudflairUploadsModule } from './cloudflair-uploads/cloudflair-uploads.module';
+import { GrpcmoduleModule } from './grpcmodule/grpcmodule.module';
 
 @Module({
   imports: [
@@ -99,6 +102,12 @@ import { OrdersModule } from './orders/orders.module';
     CouponsModule,
 
     OrdersModule,
+
+    StockLogsModule,
+
+    CloudflairUploadsModule,
+
+    GrpcmoduleModule,
   ],
   controllers: [],
 })

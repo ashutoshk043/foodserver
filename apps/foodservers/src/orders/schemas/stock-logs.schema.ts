@@ -30,6 +30,9 @@ export class StockLogs {
 
   @Prop({ required: false })
   note?: string;
+
+  @Prop({ type: String, index: true })
+orderNumber: string;
 }
 
 export const StockLogsSchema = SchemaFactory.createForClass(StockLogs);

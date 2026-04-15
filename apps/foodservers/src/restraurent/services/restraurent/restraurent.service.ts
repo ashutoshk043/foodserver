@@ -27,7 +27,7 @@ interface AuthGrpcService {
   GetUserDetails(data: {
     userId: string;
   }): Observable<any>;
-}
+} 
 @Injectable()
 export class RestraurentService implements OnModuleInit {
 

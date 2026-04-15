@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
@@ -7,26 +7,119 @@ import {
 } from '../schemas/restaurant-variant-price.schema';
 import { CreateRestaurantVariantPriceInput } from '../dtos/create-restaurant-variant-price.input';
 import { UpdateRestaurantVariantPriceInput } from '../dtos/update-restaurant-variant-price.input';
+import { firstValueFrom, Observable } from 'rxjs';
+import * as microservices from '@nestjs/microservices';
+
+
+interface AuthGrpcService {
+  GetUserDetails(data: { userId: string }): Observable<any>;
+}
 
 @Injectable()
 export class RestaurantVariantPriceService {
-constructor(
+  private authGRPCService: AuthGrpcService;
+  constructor(
+
     @InjectModel(RestaurantVariantPrice.name, 'restraurentconnection')
     private readonly recipeModel: Model<RestaurantVariantPriceDocument>,
+
+    @Inject('AUTH_GRPC')
+    private readonly client: microservices.ClientGrpc,
   ) { }
 
+  onModuleInit() {
+    this.authGRPCService = this.client.getService<AuthGrpcService>('AuthService');
+  }
+
   // ── Paginated List ───────────────────────────────────────
-async findAll(page = 1, limit = 10, search = '') {
+async findAll(
+  user: any,
+  page = 1,
+  limit = 10,
+  search = '',
+  restId?: string,
+) {
   const skip = (page - 1) * limit;
 
-  const pipeline: any[] = [
-    {
-      $match: {
-        isDeleted: false,
-      },
-    },
+  if (!user || !user.userId) {
+    throw new Error('User authentication failed');
+  }
 
-    // ── Variant lookup ─────────────────────────────
+  console.log(restId, "<<<<< Received restId in service >>>>>");
+
+  if (restId && !Types.ObjectId.isValid(restId)) {
+    throw new Error('Invalid restaurant ID');
+  }
+
+  let userDetails: any;
+
+  try {
+    userDetails = await firstValueFrom(
+      this.authGRPCService.GetUserDetails({ userId: user.userId }),
+    );
+  } catch (err) {
+    throw new ServiceUnavailableException('Auth service not reachable');
+  }
+
+  if (!userDetails || !userDetails.role) {
+    throw new Error('User details not found');
+  }
+
+  const highRoles = [
+    "global-admin",
+    "india-manager",
+    "state-manager",
+    "district-manager",
+    "block-manager"
+  ];
+
+  const restrictedRoles = [
+    "restaurant-owner",
+    "restaurant-manager"
+  ];
+
+  const matchStage: any = {
+    isDeleted: false,
+  };
+
+  // ✅ 🔥 PRIORITY: restId
+  if (restId) {
+
+    // restricted user check
+    if (restrictedRoles.includes(userDetails.role)) {
+      const restaurantIds = userDetails?.restaurantIds || [];
+
+      if (!restaurantIds.includes(restId)) {
+        throw new Error('You are not allowed to access this restaurant');
+      }
+    }
+
+    matchStage.restaurantId = new Types.ObjectId(restId);
+
+  } else {
+
+    // ✅ fallback → role based
+    if (restrictedRoles.includes(userDetails.role)) {
+      const restaurantIds = userDetails?.restaurantIds;
+
+      if (!restaurantIds || !Array.isArray(restaurantIds) || restaurantIds.length === 0) {
+        throw new Error('No restaurant access assigned');
+      }
+
+      matchStage.restaurantId = {
+        $in: restaurantIds.map((id: string) => new Types.ObjectId(id)),
+      };
+
+    } else if (highRoles.includes(userDetails.role)) {
+      // no filter → all data
+    } else {
+      throw new Error('Your role does not have access');
+    }
+  }
+
+  const pipeline: any[] = [
+    { $match: matchStage },
+
     {
       $lookup: {
         from: 'productvariants',
@@ -51,7 +144,6 @@ async findAll(page = 1, limit = 10, search = '') {
     },
     { $unwind: '$variant' },
 
-    // ── Product lookup ─────────────────────────────
     {
       $lookup: {
         from: 'products',
@@ -76,7 +168,6 @@ async findAll(page = 1, limit = 10, search = '') {
     },
     { $unwind: '$product' },
 
-    // ── Restaurant lookup (✅ VERIFIED ONLY) ───────
     {
       $lookup: {
         from: 'restaurants',
@@ -104,7 +195,6 @@ async findAll(page = 1, limit = 10, search = '') {
     },
     { $unwind: '$restaurant' },
 
-    // ── Final projection ───────────────────────────
     {
       $project: {
         _id: 1,
@@ -117,7 +207,6 @@ async findAll(page = 1, limit = 10, search = '') {
       },
     },
 
-    // ── Search ─────────────────────────────────────
     ...(search
       ? [
           {
@@ -132,7 +221,6 @@ async findAll(page = 1, limit = 10, search = '') {
         ]
       : []),
 
-    // ── Sorting ────────────────────────────────────
     {
       $sort: {
         'restaurant.name': 1,
@@ -140,7 +228,6 @@ async findAll(page = 1, limit = 10, search = '') {
       },
     },
 
-    // ── Pagination ─────────────────────────────────
     {
       $facet: {
         data: [{ $skip: skip }, { $limit: limit }],

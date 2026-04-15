@@ -41,4 +41,9 @@ export class OrdersType {
 
   @Field({ nullable: true })
   createdAt?: Date;
+
+  @Field({ nullable: true })
+  orderNumber?: Date;
+
+  
 }

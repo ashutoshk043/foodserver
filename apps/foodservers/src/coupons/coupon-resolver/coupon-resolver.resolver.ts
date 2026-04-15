@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Int, Context } from '@nestjs/graphql';
 import { CouponServiceService } from '../coupon-service/coupon-service.service';
 import { PaginatedCoupons } from '../types/paginated-coupons.type';
 import { CouponsType } from '../types/coupons.type';
@@ -11,11 +11,12 @@ export class CouponResolverResolver {
 
   @Query(() => PaginatedCoupons)
   async getCoupons(
+    @Context() ctx,
     @Args('page',   { type: () => Int,    defaultValue: 1  }) page:   number,
     @Args('limit',  { type: () => Int,    defaultValue: 10 }) limit:  number,
     @Args('search', { type: () => String, defaultValue: '' }) search: string,
   ): Promise<PaginatedCoupons> {
-    return this.service.findAll(page, limit, search);
+    return this.service.findAll(page, limit, search,ctx.user);
   }
 
   @Mutation(() => CouponsType)

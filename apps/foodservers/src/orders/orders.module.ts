@@ -7,6 +7,8 @@ import { RestaurantIngredientsStock, RestaurantIngredientsStockSchema } from '..
 import { Recipe, RecipeSchema } from '../ingredient-varient-recipe/schemas/recipe.schema';
 import { OrderItems, OrderItemsSchema } from './schemas/order-items.schema';
 import { StockLogs, StockLogsSchema } from './schemas/stock-logs.schema';
+import { RestaurantVariantPrice, RestaurantVariantPriceSchema } from '../restaurant-variant-price/schemas/restaurant-variant-price.schema';
+import { Coupons, CouponsSchema } from '../coupons/schemas/coupons.schema';
 
 @Module({
   imports: [
@@ -22,6 +24,14 @@ import { StockLogs, StockLogsSchema } from './schemas/stock-logs.schema';
           name:   RestaurantIngredientsStock.name,
           schema: RestaurantIngredientsStockSchema,
         },
+        {
+          name:RestaurantVariantPrice.name,
+          schema: RestaurantVariantPriceSchema,
+        },
+        {
+          name:Coupons.name,
+          schema: CouponsSchema,
+        }
       ],
       'restraurentconnection',
     ),

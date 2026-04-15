@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Int, Context } from '@nestjs/graphql';
 import { RestaurantVariantPriceService } from '../restaurent-varient-price-service/restaurent-varient-price-service.service';
 import { PaginatedRestaurantVariantPrices } from '../types/paginated-restaurant-variant-price.type';
 import { RestaurantVariantPriceType } from '../types/restaurant-variant-price.type';
@@ -12,11 +12,13 @@ export class RestaurantVariantPriceResolver {
   // ✅ Query added back — was commented out with wrong type
   @Query(() => PaginatedRestaurantVariantPrices)
   async getRestaurantVariantPrices(
+    @Context() ctx,
     @Args('page',   { type: () => Int,    defaultValue: 1  }) page:   number,
     @Args('limit',  { type: () => Int,    defaultValue: 10 }) limit:  number,
     @Args('search', { type: () => String, defaultValue: '' }) search: string,
+    @Args('restId', { type: () => String, nullable: true }) restId?: string,
   ): Promise<PaginatedRestaurantVariantPrices> {
-    return this.service.findAll(page, limit, search);
+    return this.service.findAll(ctx.user, page, limit, search, restId);
   }
 
   @Mutation(() => RestaurantVariantPriceType)

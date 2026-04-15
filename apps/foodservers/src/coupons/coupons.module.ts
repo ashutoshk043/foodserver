@@ -4,6 +4,7 @@ import { CouponResolverResolver } from './coupon-resolver/coupon-resolver.resolv
 import { CouponComponentController } from './coupon-component/coupon-component.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Coupons, CouponsSchema } from './schemas/coupons.schema';
+import { GrpcClientsModule } from '../grpc/clients/grpc.clients';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { Coupons, CouponsSchema } from './schemas/coupons.schema';
       [{ name: Coupons.name, schema: CouponsSchema }],
       'restraurentconnection',
     ),
+    GrpcClientsModule,
   ],
   providers: [CouponServiceService, CouponResolverResolver],
   controllers: [CouponComponentController]

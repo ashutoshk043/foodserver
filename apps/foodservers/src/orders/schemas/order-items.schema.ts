@@ -22,6 +22,9 @@ export class OrderItems {
 
   @Prop({ required: true })
   price: number;
+
+  @Prop({ type: String, index: true })
+orderNumber: string;
 }
 
 export const OrderItemsSchema = SchemaFactory.createForClass(OrderItems);
