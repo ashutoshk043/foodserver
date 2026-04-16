@@ -21,31 +21,9 @@ function resolveProtoFromPackage(): string {
   return p;
 }
 
-// function resolveProtoFromPackage(): string {
-//   const possiblePaths = [
-//     // 1️⃣ prod / build
-//     join(__dirname, '../../node_modules/@tivr/grpc-protos/proto/restaurant/restaurant.proto'),
-//     // 2️⃣ ts-node / dev
-//     join(process.cwd(), 'node_modules/@tivr/grpc-protos/proto/restaurant/restaurant.proto'),
-//   ];
-
-//   for (const p of possiblePaths) {
-//     if (fs.existsSync(p)) {
-//       console.log('✅ Using protoPath:', p);
-//       return p;
-//     }
-//   }
-
-//   console.error('❌ Could not find restaurant.proto in @tivr/grpc-protos package. Tried paths:');
-//   possiblePaths.forEach(p => console.error('  -', p));
-//   process.exit(1);
-// }
-
 
 async function bootstrap() {
   try {
-
-    // const app = await NestFactory.create(AppModule, { bodyParser: false });
 
     const app = await NestFactory.create(AppModule);
 

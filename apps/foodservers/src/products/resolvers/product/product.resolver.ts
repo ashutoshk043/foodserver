@@ -19,9 +19,10 @@ export class ProductResolver {
 
   @Mutation(() => ProductType)
   async addProducts(
+    @Context() ctx: any,
     @Args('input') input: CreateProductInput,
   ): Promise<ProductType> {
-    return this.productService.createProduct(input);
+    return this.productService.createProduct(ctx, input);
   }
 
 
@@ -36,6 +37,7 @@ export class ProductResolver {
 
   @Query(() => ProductPaginationType)
   async searchProducts(
+    @Context() ctx: any,
     @Args('name', { nullable: true }) name?: string,
     @Args('categoryId', { nullable: true }) categoryId?: string,
     @Args('page', { type: () => Int, defaultValue: 1 }) page?: number,
@@ -46,6 +48,7 @@ export class ProductResolver {
       categoryId,
       page,
       limit,
+      ctx
     });
   }
 
@@ -62,7 +65,7 @@ export class ProductResolver {
     return this.productService.getAllRestaurants(ctx);
   }
 
-    // ✅ new
+  // ✅ new
   @Query(() => ProductType, { nullable: true })
   async getProductById(
     @Args('_id', { type: () => ID }) _id: string,

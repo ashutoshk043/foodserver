@@ -10,7 +10,7 @@ export class Product {
   @Prop({ required: true, unique: true })
   slug: string;
 
-  // ✅ ObjectId reference
+  // ✅ Category reference
   @Prop({
     type: Types.ObjectId,
     ref: 'Category',
@@ -39,6 +39,19 @@ export class Product {
 
   @Prop({ default: false })
   isDeleted: boolean;
+
+  // 🔥 NEW: Global vs Restaurant
+  @Prop({ default: false, index: true })
+  isGlobal: boolean;
+
+  // 🔥 NEW: Restaurant reference (nullable)
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'Restaurant',
+    default: null,
+    index: true
+  })
+  restaurantId?: Types.ObjectId | null;
 }
 
 export type ProductDocument = Product &
@@ -51,27 +64,26 @@ export type ProductDocument = Product &
 export const ProductSchema = SchemaFactory.createForClass(Product);
 
 
-
-// 🔍 Search
+// 🔍 Basic search
 ProductSchema.index({ name: 1 });
 ProductSchema.index({ slug: 1 }, { unique: true });
 
 // ⚡ Category filtering
 ProductSchema.index({ categoryId: 1 });
 
-// 🔥 Active products query
-ProductSchema.index({ isActive: 1, isDeleted: 1 });
-
-// 📱 Online visibility
+// 🥗 Filters
+ProductSchema.index({ isVeg: 1 });
 ProductSchema.index({ isOnlineVisible: 1 });
 
-// 🥗 Veg / Non-veg filter
-ProductSchema.index({ isVeg: 1 });
+// 🔥 Active + soft delete (common filter)
+ProductSchema.index({ isActive: 1, isDeleted: 1 });
 
-// 🚀 COMPOUND INDEX (MOST IMPORTANT)
+// 🚀 MULTI-TENANT CORE QUERY INDEX (MOST IMPORTANT)
 ProductSchema.index({
   categoryId: 1,
   isActive: 1,
   isDeleted: 1,
   isOnlineVisible: 1,
+  isGlobal: 1,
+  restaurantId: 1,
 });

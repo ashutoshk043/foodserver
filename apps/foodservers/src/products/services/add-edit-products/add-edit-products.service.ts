@@ -16,6 +16,14 @@ interface AuthGrpcService {
   }): Observable<any>;
 }
 
+const ADMIN_ROLES = [
+  'global-admin',
+  'india-manager',
+  'state-manager',
+  'district-manager',
+  'block-manager',
+];
+
 @Injectable()
 export class AddEditProductsService {
 
@@ -36,50 +44,76 @@ export class AddEditProductsService {
     this.authGRPCService =
       this.client.getService<AuthGrpcService>('AuthService');
   }
-  async createProduct(
-    input: CreateProductInput,
-  ): Promise<ProductType> {
-    try {
-      const product = await this.productModel.create({
-        name: input.name,
-        slug: input.slug,
-        categoryId: input.categoryId,
-        description: input.description ?? '',
-        imageUrl: input.imageUrl ?? '',
-        varients: input.varients ?? [],
-        isVeg: input.isVeg ?? true,
-        isActive: input.isActive ?? true,
-        isOnlineVisible: input.isOnlineVisible ?? true,
-      });
+async createProduct(
+  ctx: any,
+  input: CreateProductInput,
+): Promise<ProductType> {
+  try {
+    const user = ctx.user;
 
-      return {
-        _id: product._id.toString(),
-        name: product.name,
-        slug: product.slug,
+    const userDetails = await this.getUserDetailsFromAuth(user.userId);
+    console.log('User details from Auth service:', userDetails);
 
-        // ✅ convert to string
-        categoryId: product.categoryId.toString(),
+    const isAdmin = ADMIN_ROLES.includes(userDetails.role);
 
-        description: product.description ?? '',
-        imageUrl: product.imageUrl ?? '',
-        varients: product.varients,
-        isVeg: product.isVeg,
-        isActive: product.isActive,
-        isOnlineVisible: product.isOnlineVisible,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
-      };
+    let isGlobal = false;
+    let restaurantId: Types.ObjectId | null = null;
 
-    } catch (error) {
-      console.error('Error in createProduct:', error);
-
-      if (error?.code === 11000) {
-        throw new BadRequestException('Product already exists');
+    if (isAdmin) {
+      // ✅ Admin case
+      isGlobal = true;
+      restaurantId = null;
+    } else {
+      // ✅ Restaurant user case
+      if (!userDetails.restaurantIds || userDetails.restaurantIds.length === 0) {
+        throw new BadRequestException('No restaurant assigned to user');
       }
 
-      throw new InternalServerErrorException('Failed to create product');
+      isGlobal = false;
+      restaurantId = new Types.ObjectId(userDetails.restaurantIds[0]); // assuming single
     }
+
+    const product = await this.productModel.create({
+      name: input.name,
+      slug: input.slug,
+      categoryId: new Types.ObjectId(input.categoryId),
+      description: input.description ?? '',
+      imageUrl: input.imageUrl ?? '',
+      varients: input.varients ?? [],
+      isVeg: input.isVeg ?? true,
+      isActive: input.isActive ?? true,
+      isOnlineVisible: input.isOnlineVisible ?? true,
+
+      // ✅ NEW FIELDS
+      isGlobal,
+      restaurantId,
+    });
+
+    return {
+      _id: product._id.toString(),
+      name: product.name,
+      slug: product.slug,
+      categoryId: product.categoryId.toString(),
+      description: product.description ?? '',
+      imageUrl: product.imageUrl ?? '',
+      varients: product.varients,
+      isVeg: product.isVeg,
+      isActive: product.isActive,
+      isOnlineVisible: product.isOnlineVisible,
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+    };
+
+  } catch (error) {
+    console.error('Error in createProduct:', error);
+
+    if (error?.code === 11000) {
+      throw new BadRequestException('Product already exists');
+    }
+
+    throw new InternalServerErrorException('Failed to create product');
   }
+}
 
 
   // add-edit-products.service.ts
@@ -149,103 +183,124 @@ export class AddEditProductsService {
     }
   }
 
-  async searchProducts(
-    filters: {
-      name?: string;
-      categoryId?: string;
-      page?: number;
-      limit?: number;
-    } = {},
-  ) {
-    const { name, categoryId, page = 1, limit = 10 } = filters;
+async searchProducts(
+  filters: {
+    name?: string;
+    categoryId?: string;
+    page?: number;
+    limit?: number;
+    ctx?: any;
+  } = {},
+) {
+  const { name, categoryId, page = 1, limit = 10, ctx } = filters;
 
-    try {
-      const match: any = {};
+  try {
+    const user = ctx.user;
+    const userDetails = await this.getUserDetailsFromAuth(user.userId);
 
-      // 🔍 Name search
-      if (name) {
-        match.name = { $regex: name, $options: 'i' };
+    const isAdmin = this.isAdminRole(userDetails.role);
+
+    const match: any = {
+      isDeleted: false,
+      isActive: true,
+      isOnlineVisible: true,
+    };
+
+    // 🔐 ROLE-BASED FILTER
+    if (!isAdmin) {
+      if (!userDetails.restaurantIds || userDetails.restaurantIds.length === 0) {
+        throw new BadRequestException('No restaurant assigned to user');
       }
 
-      // 🔍 Category filter
-      if (categoryId) {
-        match.categoryId = new Types.ObjectId(categoryId);
-      }
-
-      const skip = (page - 1) * limit;
-
-const pipeline: any = [
-  { $match: match },
-
-  {
-    $lookup: {
-      from: 'categories',
-      localField: 'categoryId',
-      foreignField: '_id',
-      as: 'category',
-    },
-  },
-
-  // ❌ remove null categories
-  { $unwind: '$category' },
-
-  // ✅ only active categories
-  {
-    $match: {
-      'category.isActive': true
-    }
-  },
-
-  {
-    $facet: {
-      data: [
-        { $skip: skip },
-        { $limit: limit },
+      match.$or = [
+        { isGlobal: true },
         {
-          $project: {
-            _id: 1,
-            name: 1,
-            slug: 1,
-            description: 1,
-            imageUrl: 1,
-            varients: 1,
-            isVeg: 1,
-            isActive: 1,
-            isOnlineVisible: 1,
-            createdAt: 1,
-            updatedAt: 1,
-            category: {
-              id: { $toString: '$category._id' },
-              name: '$category.name',
-            },
-          },
+          restaurantId: new Types.ObjectId(userDetails.restaurantIds[0]),
         },
-      ],
-      totalCount: [{ $count: 'count' }],
-    },
-  },
-];
-
-      const result = await this.productModel.aggregate(pipeline);
-
-      const data = result[0]?.data || [];
-      const total = result[0]?.totalCount[0]?.count || 0;
-
-      // console.log(JSON.stringify(data[0]), 'First product in search results');
-
-      return {
-        data,
-        total,
-        page,
-        limit,
-      };
-    } catch (error) {
-      console.error('Error in searchProducts:', error);
-      throw new InternalServerErrorException(
-        'An error occurred during product search',
-      );
+      ];
     }
+
+    // 🔍 Name search
+    if (name) {
+      match.name = { $regex: name, $options: 'i' };
+    }
+
+    // 🔍 Category filter
+    if (categoryId) {
+      match.categoryId = new Types.ObjectId(categoryId);
+    }
+
+    const skip = (page - 1) * limit;
+
+    const pipeline: any = [
+      { $match: match },
+
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'categoryId',
+          foreignField: '_id',
+          as: 'category',
+        },
+      },
+
+      { $unwind: '$category' },
+
+      {
+        $match: {
+          'category.isActive': true,
+        },
+      },
+
+      {
+        $facet: {
+          data: [
+            { $skip: skip },
+            { $limit: limit },
+            {
+              $project: {
+                _id: { $toString: '$_id' },
+                name: 1,
+                slug: 1,
+                description: 1,
+                imageUrl: 1,
+                varients: 1,
+                isVeg: 1,
+                isActive: 1,
+                isOnlineVisible: 1,
+                createdAt: 1,
+                updatedAt: 1,
+                category: {
+                  id: { $toString: '$category._id' },
+                  name: '$category.name',
+                },
+              },
+            },
+          ],
+          totalCount: [{ $count: 'count' }],
+        },
+      },
+    ];
+
+    const result = await this.productModel.aggregate(pipeline);
+
+    const data = result[0]?.data || [];
+    const total = result[0]?.totalCount[0]?.count || 0;
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+    };
+  } catch (error) {
+    console.error('Error in searchProducts:', error);
+
+    throw new InternalServerErrorException(
+      'An error occurred during product search',
+    );
   }
+}
 
 
   async deleteProduct(_id: string): Promise<ProductType> {
@@ -350,6 +405,12 @@ const pipeline: any = [
     _id:        product._id.toString(),
     categoryId: product.categoryId?.toString() ?? null,
   } as any;
+}
+
+
+
+isAdminRole(role: string): boolean {
+  return ADMIN_ROLES.includes(role);
 }
 
 }
